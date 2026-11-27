@@ -88,6 +88,18 @@
       "created_at": "2026-11-27T02:49:12.915Z",
       "sender": "ios",
       "is_cancelled": false
+    },
+    {
+      "id": "849d70c4-f503-4fbf-9909-48ad2d7c3f5d",
+      "role": "agent",
+      "content": "He integrado el **Sistema Inteligente de Alertas y Recordatorios de Fechas de Pago** en toda la aplicación.\n\n### 🌐 Puedes ver y probar las alertas en vivo aquí:\n👉 **[Abrir FinanzaPro con Alertas de Fechas de Pago](https://antigravity.luch.dev/site/18cd0404-8e0f-4c7e-a98f-d1ede11ce7ca/c311b220d745f543cbf5da77/)**\n\n---\n\n### 🔔 ¿Cómo funcionan las nuevas Alertas de Pago?\n\n1. **Campana de Notificaciones en la Cabecera**:\n   * Muestra un contador rojo en tiempo real con la cantidad de pagos pendientes y próximos a vencer.\n   * Al tocar la campana, se abre un **Panel de Alertas de Pago** detallado donde puedes revisar cada compromiso y abonar con un clic.\n\n2. **Banner Destacado de Pagos Próximos en el Inicio (Dashboard)**:\n   * Aparece en la parte superior del Inicio si tienes cuotas que vencen hoy, mañana o en los próximos días.\n   * Incluye botón directo **\"Pagar\"** para que no se te pase ninguna fecha.\n\n3. **Clasificación Automática por Niveles de Urgencia (Etiquetas de Color)**:\n   * 🔴 **¡Vence Hoy!** (rojo intermitente): Alerta de máxima prioridad para pagos que vencen en el día.\n   * 🟠 **Vence mañana / en 2-3 días** (ámbar): Alerta urgente de proximidad.\n   * 🔵 **Vence en X días** (azul): Aviso preventivo de los próximos 7 días.\n   * 🚨 **Vencido hace X días** (rojo fuerte): Te notifica si la fecha de corte del mes ya pasó sin registrar el pago.\n   * 🟢 **Pagado este mes** (verde): Indica que la cuota del período ya fue cubierta.\n\n4. **Botón Rápido \"Marcar Pagado\" y Registro Automático**:\n   * Puedes marcar una cuota como pagada directamente con un toque para desactivar su alerta.\n   * Al abonar desde el modal, la cuota del mes se marca como cubierta automáticamente y puedes registrar el movimiento en tus gastos.\n\n5. **Soporte para Notificaciones del Navegador**:\n   * Opción para activar avisos nativos en tu dispositivo mediante el botón *\"Activar notificaciones del navegador\"*.",
+      "status": "completed",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": "9226a41f-17ae-4af6-ac4b-b2bd7ba39b53",
+      "created_at": "2026-11-27T02:54:40.350Z",
+      "sender": "macOS",
+      "is_cancelled": false
     }
   ]
 }
