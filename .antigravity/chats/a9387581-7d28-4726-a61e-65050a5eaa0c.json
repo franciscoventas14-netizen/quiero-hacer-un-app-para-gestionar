@@ -28,6 +28,18 @@
       "created_at": "2026-11-27T02:25:20.599Z",
       "sender": "macOS",
       "is_cancelled": false
+    },
+    {
+      "id": "549c97e6-4df1-4176-85bc-2b94d2cec32d",
+      "role": "user",
+      "content": "En una app para finanzas personales",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-11-27T02:25:55.006Z",
+      "sender": "ios",
+      "is_cancelled": false
     }
   ]
 }
