@@ -1,4 +1,4 @@
-// FinanzaPro - Lógica Principal de la Aplicación
+// FinanzaPro - Lógica Principal con Gestor y Simulador de Deudas
 
 // Categorías predefinidas
 const CATEGORIES = {
@@ -6,6 +6,7 @@ const CATEGORIES = {
     { id: 'alimentacion', name: 'Alimentación', icon: '🛒', color: '#f97316' },
     { id: 'vivienda', name: 'Vivienda y Servicios', icon: '🏠', color: '#06b6d4' },
     { id: 'transporte', name: 'Transporte', icon: '🚗', color: '#3b82f6' },
+    { id: 'deudas', name: 'Pago de Deudas / Créditos', icon: '💳', color: '#ef4444' },
     { id: 'ocio', name: 'Ocio y Entretenimiento', icon: '🍿', color: '#a855f7' },
     { id: 'salud', name: 'Salud y Cuidado', icon: '💊', color: '#ec4899' },
     { id: 'compras', name: 'Ropa y Compras', icon: '🛍️', color: '#eab308' },
@@ -30,7 +31,7 @@ const CURRENCIES = {
   CLP: { symbol: '$', code: 'CLP', locale: 'es-CL' }
 };
 
-// Datos de demostración iniciales
+// Datos de demostración iniciales: Movimientos
 const DEFAULT_TRANSACTIONS = [
   {
     id: 'tx-1',
@@ -64,26 +65,26 @@ const DEFAULT_TRANSACTIONS = [
     type: 'gasto',
     amount: 320,
     category: 'Alimentación',
-    description: 'Supermercado semanal',
+    description: 'Supermercado quincenal',
     method: 'Tarjeta de Débito',
     date: '2026-11-08'
   },
   {
     id: 'tx-5',
     type: 'gasto',
-    amount: 95,
-    category: 'Transporte',
-    description: 'Carga de combustible y peajes',
-    method: 'Tarjeta de Crédito',
+    amount: 120,
+    category: 'Pago de Deudas / Créditos',
+    description: 'Cuota Tarjeta Visa',
+    method: 'Transferencia',
     date: '2026-11-15'
   },
   {
     id: 'tx-6',
     type: 'gasto',
-    amount: 85,
-    category: 'Ocio y Entretenimiento',
-    description: 'Cena restaurante con amigos',
-    method: 'Tarjeta de Débito',
+    amount: 95,
+    category: 'Transporte',
+    description: 'Combustible y peajes',
+    method: 'Tarjeta de Crédito',
     date: '2026-11-18'
   },
   {
@@ -94,15 +95,6 @@ const DEFAULT_TRANSACTIONS = [
     description: 'Farmacia y vitaminas',
     method: 'Efectivo',
     date: '2026-11-20'
-  },
-  {
-    id: 'tx-8',
-    type: 'gasto',
-    amount: 110,
-    category: 'Ropa y Compras',
-    description: 'Zapatos deportivos',
-    method: 'Tarjeta de Crédito',
-    date: '2026-11-23'
   }
 ];
 
@@ -110,15 +102,15 @@ const DEFAULT_BUDGETS = {
   'Alimentación': 500,
   'Vivienda y Servicios': 850,
   'Transporte': 180,
+  'Pago de Deudas / Créditos': 350,
   'Ocio y Entretenimiento': 150,
-  'Ropa y Compras': 150,
   'Salud y Cuidado': 120
 };
 
 const DEFAULT_GOALS = [
   {
     id: 'goal-1',
-    title: 'Fondo de Emergencia (3 meses)',
+    title: 'Fondo de Emergencia',
     target: 4000,
     current: 2600,
     icon: '🛡️',
@@ -131,28 +123,56 @@ const DEFAULT_GOALS = [
     current: 850,
     icon: '✈️',
     deadline: '2026-12-15'
-  },
-  {
-    id: 'goal-3',
-    title: 'Nuevo Portátil de Trabajo',
-    target: 1500,
-    current: 1500,
-    icon: '💻',
-    deadline: '2026-11-30'
   }
 ];
 
-// Estado de la aplicación
+// Datos de demostración iniciales: Deudas Activas
+const DEFAULT_DEBTS = [
+  {
+    id: 'debt-1',
+    title: 'Tarjeta Visa Oro',
+    total: 3200,
+    balance: 1850,
+    monthlyMin: 120,
+    rate: 24.5,
+    dueDay: 15,
+    icon: '💳'
+  },
+  {
+    id: 'debt-2',
+    title: 'Préstamo Personal Banco',
+    total: 6000,
+    balance: 3900,
+    monthlyMin: 210,
+    rate: 14.0,
+    dueDay: 5,
+    icon: '🤝'
+  },
+  {
+    id: 'debt-3',
+    title: 'Computadora Portátil (12 cuotas)',
+    total: 1200,
+    balance: 400,
+    monthlyMin: 100,
+    rate: 0,
+    dueDay: 20,
+    icon: '🛍️'
+  }
+];
+
+// Estado global de la aplicación
 let state = {
   transactions: JSON.parse(localStorage.getItem('fp_transactions')) || DEFAULT_TRANSACTIONS,
   budgets: JSON.parse(localStorage.getItem('fp_budgets')) || DEFAULT_BUDGETS,
   goals: JSON.parse(localStorage.getItem('fp_goals')) || DEFAULT_GOALS,
+  debts: JSON.parse(localStorage.getItem('fp_debts')) || DEFAULT_DEBTS,
   currency: localStorage.getItem('fp_currency') || 'USD',
   hideBalance: localStorage.getItem('fp_hide_balance') === 'true',
-  activeTab: 'resumen'
+  activeTab: 'resumen',
+  debtSubTab: 'list' // 'list' o 'simulator'
 };
 
-// Variables para instancias de Chart.js
+// Instancias de Chart.js
 let categoryChartInstance = null;
 let trendChartInstance = null;
 
@@ -163,9 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupCategoryOptions('gasto');
   setupBudgetCategoryOptions();
   setupEventListeners();
+  setupSimulatorControls();
   renderApp();
+  updateDebtSimulator();
 
-  // Fecha por defecto hoy para nuevo movimiento
+  // Fecha de hoy por defecto para movimiento
   const today = new Date().toISOString().split('T')[0];
   const dateInput = document.getElementById('tx-date');
   if (dateInput) dateInput.value = today;
@@ -176,6 +198,7 @@ function saveState() {
   localStorage.setItem('fp_transactions', JSON.stringify(state.transactions));
   localStorage.setItem('fp_budgets', JSON.stringify(state.budgets));
   localStorage.setItem('fp_goals', JSON.stringify(state.goals));
+  localStorage.setItem('fp_debts', JSON.stringify(state.debts));
   localStorage.setItem('fp_currency', state.currency);
   localStorage.setItem('fp_hide_balance', state.hideBalance);
 }
@@ -210,6 +233,7 @@ function setupCurrency() {
       saveState();
       updateCurrencySymbols();
       renderApp();
+      updateDebtSimulator();
       showToast(`Moneda cambiada a ${state.currency}`);
     });
   }
@@ -247,6 +271,7 @@ if (eyeBtn) {
     state.hideBalance = !state.hideBalance;
     saveState();
     renderBalance();
+    renderDebts();
     const icon = document.getElementById('eye-icon');
     if (icon) {
       icon.setAttribute('data-lucide', state.hideBalance ? 'eye-off' : 'eye');
@@ -255,9 +280,8 @@ if (eyeBtn) {
   });
 }
 
-// Configuración de listeners de eventos
+// Configuración de listeners
 function setupEventListeners() {
-  // Filtros de transacciones
   const searchInput = document.getElementById('tx-search');
   const typeFilter = document.getElementById('tx-type-filter');
   const catFilter = document.getElementById('tx-category-filter');
@@ -267,12 +291,11 @@ function setupEventListeners() {
   if (catFilter) catFilter.addEventListener('change', renderTransactionsList);
 }
 
-// Cambio de Pestañas
+// Cambio de Pestañas Principales
 function switchTab(tabId) {
   state.activeTab = tabId;
 
-  // Ocultar todas las secciones
-  const sections = ['resumen', 'movimientos', 'presupuestos', 'metas'];
+  const sections = ['resumen', 'movimientos', 'deudas', 'presupuestos', 'metas'];
   sections.forEach(sec => {
     const el = document.getElementById(`view-${sec}`);
     if (el) {
@@ -284,7 +307,7 @@ function switchTab(tabId) {
     }
   });
 
-  // Actualizar botones de navegación escritorio
+  // Botones Escritorio
   document.querySelectorAll('.nav-tab').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.classList.add('active');
@@ -295,7 +318,7 @@ function switchTab(tabId) {
     }
   });
 
-  // Actualizar botones de navegación móvil
+  // Botones Móvil
   document.querySelectorAll('.mobile-tab').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.classList.add('active');
@@ -306,7 +329,6 @@ function switchTab(tabId) {
     }
   });
 
-  // Si cambiamos a resumen, redimensionar gráficos
   if (tabId === 'resumen') {
     setTimeout(() => {
       if (categoryChartInstance) categoryChartInstance.resize();
@@ -314,7 +336,38 @@ function switchTab(tabId) {
     }, 50);
   }
 
+  if (tabId === 'deudas') {
+    renderDebts();
+    updateDebtSimulator();
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Cambio de Sub-pestaña de Deudas (Lista vs Simulador)
+function switchDebtSubTab(subTab) {
+  state.debtSubTab = subTab;
+  const listEl = document.getElementById('subview-debts-list');
+  const simEl = document.getElementById('subview-debts-simulator');
+  const listBtn = document.getElementById('subtab-debts-list-btn');
+  const simBtn = document.getElementById('subtab-debts-sim-btn');
+
+  if (subTab === 'list') {
+    if (listEl) listEl.classList.remove('hidden');
+    if (simEl) simEl.classList.add('hidden');
+
+    listBtn.className = 'flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm flex items-center justify-center gap-2';
+    simBtn.className = 'flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-2';
+    renderDebts();
+  } else {
+    if (listEl) listEl.classList.add('hidden');
+    if (simEl) simEl.classList.remove('hidden');
+
+    simBtn.className = 'flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm flex items-center justify-center gap-2';
+    listBtn.className = 'flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-2';
+    updateDebtSimulator();
+  }
+  lucide.createIcons();
 }
 
 // Renderizado General
@@ -325,10 +378,11 @@ function renderApp() {
   renderTransactionsList();
   renderBudgets();
   renderGoals();
+  renderDebts();
   lucide.createIcons();
 }
 
-// 1. Balance & Tarjeta Principal
+// 1. Balance y Métricas del Dashboard
 function renderBalance() {
   let totalIncome = 0;
   let totalExpenses = 0;
@@ -378,7 +432,7 @@ function renderRecentTransactions() {
   container.innerHTML = recent.map(tx => createTransactionRowHTML(tx)).join('');
 }
 
-// 3. Lista Completa de Transacciones con Filtros
+// 3. Lista Completa de Transacciones
 function renderTransactionsList() {
   const container = document.getElementById('full-transactions-list');
   if (!container) return;
@@ -420,14 +474,13 @@ function renderTransactionsList() {
   lucide.createIcons();
 }
 
-// Generador HTML para una fila de transacción
+// Fila HTML de Transacción
 function createTransactionRowHTML(tx, showDelete = true) {
   const isIncome = tx.type === 'ingreso';
   const sign = isIncome ? '+' : '-';
   const colorClass = isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white';
   const bgClass = isIncome ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400';
   
-  // Buscar emoji según categoría
   let iconEmoji = isIncome ? '💰' : '🏷️';
   const allCats = [...CATEGORIES.gasto, ...CATEGORIES.ingreso];
   const catObj = allCats.find(c => c.name.toLowerCase() === tx.category.toLowerCase());
@@ -475,7 +528,379 @@ function createTransactionRowHTML(tx, showDelete = true) {
   `;
 }
 
-// 4. Presupuestos
+// 4. CONTROL DE DEUDAS (NUEVO)
+function renderDebts() {
+  const container = document.getElementById('debts-cards-grid');
+  let totalPendingDebt = 0;
+  let totalInitialDebt = 0;
+  let totalMonthlyPayment = 0;
+
+  state.debts.forEach(d => {
+    totalPendingDebt += d.balance;
+    totalInitialDebt += d.total;
+    totalMonthlyPayment += (d.monthlyMin || 0);
+  });
+
+  const totalPaidDebt = Math.max(totalInitialDebt - totalPendingDebt, 0);
+  const paidPct = totalInitialDebt > 0 ? Math.round((totalPaidDebt / totalInitialDebt) * 100) : 0;
+
+  // Actualizar métricas superiores en vista de Deudas
+  const metricTotalEl = document.getElementById('debt-metric-total');
+  const metricCountEl = document.getElementById('debt-metric-count');
+  const metricMonthlyEl = document.getElementById('debt-metric-monthly');
+  const metricPaidEl = document.getElementById('debt-metric-paid');
+  const metricPaidPctEl = document.getElementById('debt-metric-paid-pct');
+
+  if (metricTotalEl) metricTotalEl.textContent = formatMoney(totalPendingDebt);
+  if (metricCountEl) metricCountEl.textContent = `${state.debts.length} ${state.debts.length === 1 ? 'deuda registrada' : 'deudas registradas'}`;
+  if (metricMonthlyEl) metricMonthlyEl.textContent = formatMoney(totalMonthlyPayment);
+  if (metricPaidEl) metricPaidEl.textContent = formatMoney(totalPaidDebt);
+  if (metricPaidPctEl) metricPaidPctEl.textContent = `Progreso de liquidación: ${paidPct}%`;
+
+  // Actualizar tarjeta en Resumen Principal
+  const dashDebtTotalEl = document.getElementById('dash-debt-total');
+  const dashDebtStatusEl = document.getElementById('dash-debt-status-text');
+  if (dashDebtTotalEl) dashDebtTotalEl.textContent = formatMoney(totalPendingDebt);
+  if (dashDebtStatusEl) {
+    if (state.debts.length > 0) {
+      dashDebtStatusEl.textContent = `Tienes ${state.debts.length} deudas activas por un saldo total de ${formatMoney(totalPendingDebt)}.`;
+    } else {
+      dashDebtStatusEl.textContent = `No tienes deudas pendientes. ¡Excelente salud financiera!`;
+    }
+  }
+
+  if (!container) return;
+
+  if (state.debts.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-12 text-center text-slate-400">
+        <i data-lucide="shield-check" class="w-12 h-12 mx-auto mb-2 text-emerald-500 opacity-80"></i>
+        <h4 class="font-bold text-slate-700 dark:text-slate-200">¡Libre de deudas!</h4>
+        <p class="text-xs text-slate-400 mt-1">No tienes deudas activas registradas en este momento.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.debts.map(debt => {
+    const paidAmount = Math.max(debt.total - debt.balance, 0);
+    const progress = Math.min(Math.round((paidAmount / debt.total) * 100), 100);
+    const isPaidOff = debt.balance <= 0;
+
+    return `
+      <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border ${isPaidOff ? 'border-emerald-500/50 dark:border-emerald-500/50' : 'border-slate-200 dark:border-slate-800'} shadow-sm flex flex-col justify-between space-y-4 relative overflow-hidden">
+        ${isPaidOff ? `
+          <div class="absolute -right-7 top-4 bg-emerald-500 text-white text-[10px] font-extrabold uppercase py-0.5 px-8 rotate-45 shadow">
+            ¡Pagada!
+          </div>
+        ` : ''}
+
+        <div>
+          <!-- Cabecera de la deuda -->
+          <div class="flex items-start justify-between gap-2 mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-xl flex-shrink-0">
+                <span>${debt.icon || '💳'}</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">${escapeHTML(debt.title)}</h4>
+                <div class="flex items-center gap-2 mt-0.5">
+                  ${debt.rate > 0 ? `
+                    <span class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">
+                      ${debt.rate}% interés anual
+                    </span>
+                  ` : `
+                    <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
+                      0% interés
+                    </span>
+                  `}
+                  ${debt.dueDay ? `<span class="text-[11px] text-slate-400">Día ${debt.dueDay}</span>` : ''}
+                </div>
+              </div>
+            </div>
+            <button onclick="deleteDebt('${debt.id}')" class="text-slate-300 hover:text-rose-500 p-1" title="Eliminar deuda">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Saldos -->
+          <div class="flex items-baseline justify-between mb-1.5">
+            <div>
+              <span class="text-xs text-slate-400 block">Saldo pendiente</span>
+              <span class="text-2xl font-extrabold text-slate-900 dark:text-white">${formatMoney(debt.balance)}</span>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">Total inicial</span>
+              <span class="text-xs font-semibold text-slate-500">${formatMoney(debt.total)}</span>
+            </div>
+          </div>
+
+          <!-- Barra de Progreso de Amortización -->
+          <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: ${progress}%"></div>
+          </div>
+          <div class="flex justify-between items-center text-[11px] mt-1.5 font-semibold">
+            <span class="text-emerald-600 dark:text-emerald-400">${progress}% amortizado</span>
+            <span class="text-slate-400">Pagado: ${formatMoney(paidAmount)}</span>
+          </div>
+
+          <!-- Cuota mensual comprometida -->
+          ${debt.monthlyMin > 0 ? `
+            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+              <span class="text-slate-500 dark:text-slate-400">Cuota mínima sugerida:</span>
+              <span class="font-bold text-slate-800 dark:text-slate-200">${formatMoney(debt.monthlyMin)} / mes</span>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Botón Abonar -->
+        <div class="pt-2">
+          ${isPaidOff ? `
+            <div class="w-full py-2.5 rounded-2xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-center flex items-center justify-center gap-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>Deuda totalmente liquidada</span>
+            </div>
+          ` : `
+            <button onclick="openDebtPaymentModal('${debt.id}', '${escapeHTML(debt.title)}', ${debt.balance})" class="w-full py-2.5 rounded-2xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-sm shadow-rose-600/20 transition-colors flex items-center justify-center gap-1.5">
+              <i data-lucide="credit-card" class="w-4 h-4"></i>
+              <span>Abonar a esta deuda</span>
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 5. SIMULADOR DE PRÉSTAMOS / AMORTIZACIÓN (NUEVO)
+let currentSimResults = null;
+
+function setupSimulatorControls() {
+  const amountRange = document.getElementById('sim-amount-range');
+  const amountInput = document.getElementById('sim-amount-input');
+  const rateRange = document.getElementById('sim-rate-range');
+  const rateInput = document.getElementById('sim-rate-input');
+  const monthsRange = document.getElementById('sim-months-range');
+  const extraInput = document.getElementById('sim-extra-input');
+
+  if (amountRange && amountInput) {
+    amountRange.addEventListener('input', (e) => {
+      amountInput.value = e.target.value;
+      updateDebtSimulator();
+    });
+    amountInput.addEventListener('input', (e) => {
+      amountRange.value = e.target.value;
+      updateDebtSimulator();
+    });
+  }
+
+  if (rateRange && rateInput) {
+    rateRange.addEventListener('input', (e) => {
+      rateInput.value = e.target.value;
+      updateDebtSimulator();
+    });
+    rateInput.addEventListener('input', (e) => {
+      rateRange.value = e.target.value;
+      updateDebtSimulator();
+    });
+  }
+
+  if (monthsRange) {
+    monthsRange.addEventListener('input', () => {
+      updateDebtSimulator();
+    });
+  }
+
+  if (extraInput) {
+    extraInput.addEventListener('input', () => {
+      updateDebtSimulator();
+    });
+  }
+}
+
+function setSimMonths(months) {
+  const monthsRange = document.getElementById('sim-months-range');
+  if (monthsRange) {
+    monthsRange.value = months;
+    updateDebtSimulator();
+  }
+}
+
+function updateDebtSimulator() {
+  const principal = parseFloat(document.getElementById('sim-amount-input')?.value) || 5000;
+  const annualRate = parseFloat(document.getElementById('sim-rate-input')?.value) || 14;
+  const months = parseInt(document.getElementById('sim-months-range')?.value) || 24;
+  const extraPayment = parseFloat(document.getElementById('sim-extra-input')?.value) || 0;
+
+  // Actualizar textos de etiquetas
+  const amountDisp = document.getElementById('sim-amount-display');
+  const rateDisp = document.getElementById('sim-rate-display');
+  const monthsDisp = document.getElementById('sim-months-display');
+  const extraDisp = document.getElementById('sim-extra-display');
+
+  if (amountDisp) amountDisp.textContent = formatMoney(principal);
+  if (rateDisp) rateDisp.textContent = `${annualRate.toFixed(1)}%`;
+  if (monthsDisp) {
+    const years = (months / 12).toFixed(1).replace('.0', '');
+    monthsDisp.textContent = `${months} meses (${years} ${years === '1' ? 'año' : 'años'})`;
+  }
+  if (extraDisp) extraDisp.textContent = `+${formatMoney(extraPayment)}/mes`;
+
+  // Cálculo Matemático de Amortización (Cuota Fija / Sistema Francés)
+  const monthlyRate = (annualRate / 100) / 12;
+  let standardMonthlyPayment = 0;
+
+  if (monthlyRate === 0) {
+    standardMonthlyPayment = principal / months;
+  } else {
+    standardMonthlyPayment = principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+  }
+
+  const standardTotalCost = standardMonthlyPayment * months;
+  const standardTotalInterest = standardTotalCost - principal;
+
+  // Simulación con aporte extra mensual
+  let simulatedBalance = principal;
+  let simulatedTotalInterest = 0;
+  let simulatedMonths = 0;
+  const schedule = [];
+
+  while (simulatedBalance > 0.01 && simulatedMonths < 600) {
+    simulatedMonths++;
+    const interestForMonth = simulatedBalance * monthlyRate;
+    let paymentForMonth = standardMonthlyPayment + extraPayment;
+    let principalForMonth = paymentForMonth - interestForMonth;
+
+    if (simulatedBalance + interestForMonth < paymentForMonth) {
+      paymentForMonth = simulatedBalance + interestForMonth;
+      principalForMonth = simulatedBalance;
+      simulatedBalance = 0;
+    } else {
+      simulatedBalance -= principalForMonth;
+    }
+
+    simulatedTotalInterest += interestForMonth;
+
+    schedule.push({
+      month: simulatedMonths,
+      payment: paymentForMonth,
+      principal: principalForMonth,
+      interest: interestForMonth,
+      remaining: Math.max(simulatedBalance, 0)
+    });
+  }
+
+  // Guardar en variable global para modal de guardado
+  currentSimResults = {
+    principal,
+    annualRate,
+    months,
+    standardMonthlyPayment,
+    standardTotalInterest,
+    standardTotalCost
+  };
+
+  // Actualizar UI de Resultados
+  const resPaymentEl = document.getElementById('sim-result-payment');
+  const resPrincipalEl = document.getElementById('sim-result-principal');
+  const resInterestEl = document.getElementById('sim-result-interest');
+  const resTotalEl = document.getElementById('sim-result-total');
+  const ratioBar = document.getElementById('sim-ratio-bar');
+  const ratioText = document.getElementById('sim-result-ratio');
+
+  if (resPaymentEl) resPaymentEl.textContent = formatMoney(standardMonthlyPayment);
+  if (resPrincipalEl) resPrincipalEl.textContent = formatMoney(principal);
+  if (resInterestEl) resInterestEl.textContent = `+${formatMoney(standardTotalInterest)}`;
+  if (resTotalEl) resTotalEl.textContent = formatMoney(standardTotalCost);
+
+  if (ratioBar && ratioText) {
+    const capitalPct = Math.round((principal / standardTotalCost) * 100);
+    const interestPct = 100 - capitalPct;
+    ratioBar.style.width = `${capitalPct}%`;
+    ratioText.textContent = `${capitalPct}% Capital • ${interestPct}% Interés`;
+  }
+
+  // Tarjeta de Ahorro con Pago Extra
+  const savingsCard = document.getElementById('sim-extra-savings-card');
+  const savingsText = document.getElementById('sim-extra-savings-text');
+
+  if (savingsCard && savingsText) {
+    if (extraPayment > 0 && simulatedMonths < months) {
+      const monthsSaved = months - simulatedMonths;
+      const interestSaved = Math.max(standardTotalInterest - simulatedTotalInterest, 0);
+      savingsCard.classList.remove('hidden');
+      savingsText.innerHTML = `
+        ¡Pagarás tu préstamo <strong>${monthsSaved} meses antes</strong> y te ahorrarás <strong>${formatMoney(interestSaved)}</strong> en intereses!
+      `;
+    } else {
+      savingsCard.classList.add('hidden');
+    }
+  }
+
+  // Rellenar tabla de cronograma
+  renderAmortizationTable(schedule);
+}
+
+function renderAmortizationTable(schedule) {
+  const tbody = document.getElementById('amortization-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = schedule.map(row => `
+    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+      <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">Mes ${row.month}</td>
+      <td class="py-2 px-3 font-bold">${formatMoney(row.payment)}</td>
+      <td class="py-2 px-3 text-emerald-600 dark:text-emerald-400">${formatMoney(row.principal)}</td>
+      <td class="py-2 px-3 text-rose-500">${formatMoney(row.interest)}</td>
+      <td class="py-2 px-3 text-right font-semibold">${formatMoney(row.remaining)}</td>
+    </tr>
+  `).join('');
+}
+
+function toggleAmortizationTable() {
+  const container = document.getElementById('amortization-table-container');
+  const icon = document.getElementById('icon-toggle-amort');
+  const btn = document.getElementById('btn-toggle-amort-table');
+  if (!container) return;
+
+  const isHidden = container.classList.contains('hidden');
+  if (isHidden) {
+    container.classList.remove('hidden');
+    if (btn) btn.querySelector('span').textContent = 'Ocultar tabla';
+    if (icon) icon.setAttribute('data-lucide', 'chevron-up');
+  } else {
+    container.classList.add('hidden');
+    if (btn) btn.querySelector('span').textContent = 'Ver tabla completa';
+    if (icon) icon.setAttribute('data-lucide', 'chevron-down');
+  }
+  lucide.createIcons();
+}
+
+// Convertir simulación en deuda activa
+function saveSimulatedDebtToActive() {
+  if (!currentSimResults) return;
+
+  const name = prompt('Ingresa un nombre para esta deuda:', 'Préstamo Simulado');
+  if (!name) return;
+
+  const newDebt = {
+    id: 'debt-' + Date.now(),
+    title: name.trim(),
+    total: currentSimResults.principal,
+    balance: currentSimResults.principal,
+    monthlyMin: Math.round(currentSimResults.standardMonthlyPayment),
+    rate: currentSimResults.annualRate,
+    dueDay: 15,
+    icon: '🤝'
+  };
+
+  state.debts.push(newDebt);
+  saveState();
+  renderDebts();
+  switchDebtSubTab('list');
+  showToast(`¡Deuda "${newDebt.title}" guardada en seguimiento!`);
+}
+
+// 6. Presupuestos
 function renderBudgets() {
   const container = document.getElementById('budget-cards-grid');
   if (!container) return;
@@ -483,7 +908,6 @@ function renderBudgets() {
   let totalBudget = 0;
   let totalSpentInBudget = 0;
 
-  // Calcular gasto por categoría en el mes
   const categorySpending = {};
   state.transactions.forEach(t => {
     if (t.type === 'gasto') {
@@ -509,7 +933,6 @@ function renderBudgets() {
       const percentage = Math.round((spent / limit) * 100);
       const remaining = limit - spent;
 
-      // Color según porcentaje
       let barColor = 'bg-emerald-500';
       let statusBadge = `<span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">En orden</span>`;
 
@@ -552,7 +975,6 @@ function renderBudgets() {
     }).join('');
   }
 
-  // Actualizar Resumen general de presupuesto
   const totalSpentEl = document.getElementById('budget-summary-spent');
   const totalLimitEl = document.getElementById('budget-summary-total');
   const totalPercentEl = document.getElementById('budget-summary-percent');
@@ -566,7 +988,7 @@ function renderBudgets() {
   if (totalBarEl) totalBarEl.style.width = `${Math.min(overallPercent, 100)}%`;
 }
 
-// 5. Metas de Ahorro
+// 7. Metas de Ahorro
 function renderGoals() {
   const container = document.getElementById('goals-cards-grid');
   if (!container) return;
@@ -609,13 +1031,11 @@ function renderGoals() {
             </button>
           </div>
 
-          <!-- Montos -->
           <div class="flex items-baseline justify-between mb-1.5">
             <span class="text-2xl font-extrabold text-slate-900 dark:text-white">${formatMoney(goal.current)}</span>
             <span class="text-xs font-semibold text-slate-500">de ${formatMoney(goal.target)}</span>
           </div>
 
-          <!-- Barra de Progreso -->
           <div class="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
             <div class="bg-gradient-to-r from-teal-500 to-emerald-500 h-full rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
           </div>
@@ -625,7 +1045,6 @@ function renderGoals() {
           </div>
         </div>
 
-        <!-- Botón Aportar -->
         <button onclick="openDepositModal('${goal.id}', '${escapeHTML(goal.title)}')" class="w-full py-2.5 rounded-2xl text-xs font-bold ${isCompleted ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20'} transition-colors flex items-center justify-center gap-1.5">
           <i data-lucide="plus" class="w-4 h-4"></i>
           <span>${isCompleted ? 'Aportar más' : 'Aportar a esta meta'}</span>
@@ -635,7 +1054,7 @@ function renderGoals() {
   }).join('');
 }
 
-// 6. Gráficos Interactivos (Chart.js)
+// 8. Gráficos Interactivos (Chart.js)
 function renderCharts() {
   renderCategoryChart();
   renderTrendChart();
@@ -646,7 +1065,6 @@ function renderCategoryChart() {
   const noDataEl = document.getElementById('no-category-data');
   if (!canvas) return;
 
-  // Agrupar gastos por categoría
   const expenseCategories = {};
   state.transactions.forEach(t => {
     if (t.type === 'gasto') {
@@ -667,7 +1085,6 @@ function renderCategoryChart() {
   canvas.classList.remove('hidden');
   if (noDataEl) noDataEl.classList.add('hidden');
 
-  // Asignar colores según categoría
   const backgroundColors = labels.map(label => {
     const found = CATEGORIES.gasto.find(c => c.name === label);
     return found ? found.color : '#94a3b8';
@@ -726,7 +1143,6 @@ function renderTrendChart() {
   const incomeData = [2400, 2600, 3250];
   const expenseData = [1600, 1850, 1420];
 
-  // Calcular totales del mes actual dinámicamente
   let currentMonthIncome = 0;
   let currentMonthExpense = 0;
   state.transactions.forEach(t => {
@@ -806,7 +1222,7 @@ function updateChartsTheme() {
   if (trendChartInstance) renderTrendChart();
 }
 
-// 7. Manejo de Modales
+// 9. Manejo de Modales
 function openModal(modalId, forcedType = null) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
@@ -826,7 +1242,6 @@ function closeModal(modalId) {
   modal.classList.remove('flex');
 }
 
-// Cerrar modal al pulsar fuera del cuadro
 window.addEventListener('click', (e) => {
   if (e.target.classList.contains('fixed') && e.target.classList.contains('backdrop-blur-sm')) {
     e.target.classList.add('hidden');
@@ -834,7 +1249,7 @@ window.addEventListener('click', (e) => {
   }
 });
 
-// Tipo de Transacción (Gasto / Ingreso)
+// Tipos de Transacción
 function setTransactionType(type) {
   document.getElementById('tx-type').value = type;
   const btnGasto = document.getElementById('btn-type-gasto');
@@ -863,17 +1278,13 @@ function setupCategoryOptions(type) {
     <option value="${c.name}">${c.icon} ${c.name}</option>
   `).join('');
 
-  // También sincronizar filtro de transacciones
   const txCatFilter = document.getElementById('tx-category-filter');
-  if (txCatFilter && txCatFilter.children.length <= 1) {
+  if (txCatFilter) {
     const all = [...CATEGORIES.gasto, ...CATEGORIES.ingreso];
     const unique = [...new Set(all.map(c => c.name))];
-    unique.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      txCatFilter.appendChild(opt);
-    });
+    txCatFilter.innerHTML = '<option value="all">Todas las categorías</option>' + unique.map(name => `
+      <option value="${name}">${name}</option>
+    `).join('');
   }
 }
 
@@ -917,6 +1328,106 @@ function handleTransactionSubmit(e) {
   closeModal('transaction-modal');
   document.getElementById('transaction-form').reset();
   showToast(type === 'gasto' ? 'Gasto registrado con éxito' : 'Ingreso registrado con éxito');
+}
+
+// Envío de Formulario: Deuda Nueva
+function handleDebtSubmit(e) {
+  e.preventDefault();
+  const title = document.getElementById('debt-title').value.trim();
+  const total = parseFloat(document.getElementById('debt-total').value);
+  const balance = parseFloat(document.getElementById('debt-balance').value);
+  const monthlyMin = parseFloat(document.getElementById('debt-monthly-min').value) || 0;
+  const rate = parseFloat(document.getElementById('debt-rate').value) || 0;
+  const dueDay = parseInt(document.getElementById('debt-due-day').value) || null;
+  const icon = document.getElementById('debt-icon').value;
+
+  if (isNaN(total) || total <= 0) {
+    alert('Ingresa un monto inicial válido');
+    return;
+  }
+
+  const newDebt = {
+    id: 'debt-' + Date.now(),
+    title,
+    total,
+    balance: isNaN(balance) ? total : balance,
+    monthlyMin,
+    rate,
+    dueDay,
+    icon
+  };
+
+  state.debts.push(newDebt);
+  saveState();
+  renderDebts();
+  closeModal('debt-modal');
+  document.getElementById('debt-form').reset();
+  showToast(`Deuda "${title}" agregada al control`);
+}
+
+// Modal de Abono a Deuda
+function openDebtPaymentModal(debtId, title, currentBalance) {
+  document.getElementById('debt-pay-id').value = debtId;
+  document.getElementById('debt-pay-title').textContent = `${title} (Saldo pendiente: ${formatMoney(currentBalance)})`;
+  document.getElementById('debt-pay-amount').value = '';
+  document.getElementById('debt-pay-amount').max = currentBalance;
+  openModal('debt-payment-modal');
+}
+
+// Procesar Pago / Abono a Deuda
+function handleDebtPaymentSubmit(e) {
+  e.preventDefault();
+  const debtId = document.getElementById('debt-pay-id').value;
+  const amount = parseFloat(document.getElementById('debt-pay-amount').value);
+  const createTx = document.getElementById('debt-pay-create-tx').checked;
+
+  if (isNaN(amount) || amount <= 0) {
+    alert('Ingresa un monto de pago válido');
+    return;
+  }
+
+  const debt = state.debts.find(d => d.id === debtId);
+  if (!debt) return;
+
+  debt.balance = Math.max(debt.balance - amount, 0);
+  const isNowPaidOff = debt.balance === 0;
+
+  // Registrar como movimiento de gasto si se seleccionó
+  if (createTx) {
+    const today = new Date().toISOString().split('T')[0];
+    state.transactions.unshift({
+      id: 'tx-' + Date.now(),
+      type: 'gasto',
+      amount,
+      category: 'Pago de Deudas / Créditos',
+      description: `Abono a ${debt.title}`,
+      method: 'Transferencia',
+      date: today
+    });
+  }
+
+  saveState();
+  renderApp();
+  closeModal('debt-payment-modal');
+  showToast(`¡Abono de ${formatMoney(amount)} aplicado a ${debt.title}!`);
+
+  if (isNowPaidOff && typeof confetti === 'function') {
+    confetti({
+      particleCount: 150,
+      spread: 80,
+      origin: { y: 0.6 }
+    });
+  }
+}
+
+// Eliminar Deuda
+function deleteDebt(id) {
+  if (confirm('¿Deseas eliminar este registro de deuda?')) {
+    state.debts = state.debts.filter(d => d.id !== id);
+    saveState();
+    renderDebts();
+    showToast('Deuda eliminada del control');
+  }
 }
 
 // Envío de Formulario: Presupuesto
@@ -969,7 +1480,7 @@ function handleGoalSubmit(e) {
   showToast(`Meta "${title}" creada con éxito`);
 }
 
-// Abrir Modal de Depósito para Meta
+// Modal de Depósito para Meta
 function openDepositModal(goalId, title) {
   document.getElementById('deposit-goal-id').value = goalId;
   document.getElementById('deposit-goal-title').textContent = title;
@@ -977,7 +1488,6 @@ function openDepositModal(goalId, title) {
   openModal('deposit-modal');
 }
 
-// Envío de Formulario: Aportar a Meta
 function handleDepositSubmit(e) {
   e.preventDefault();
   const goalId = document.getElementById('deposit-goal-id').value;
@@ -999,7 +1509,6 @@ function handleDepositSubmit(e) {
   closeModal('deposit-modal');
   showToast(`¡Aporte de ${formatMoney(amount)} registrado!`);
 
-  // Lanzar confeti si se completó la meta
   if (completedNow && typeof confetti === 'function') {
     confetti({
       particleCount: 120,
@@ -1058,7 +1567,7 @@ function exportToCSV() {
   showToast('Archivo CSV descargado');
 }
 
-// Notificación Toast
+// Toast Notificaciones
 function showToast(message) {
   const toast = document.getElementById('toast');
   const toastMsg = document.getElementById('toast-message');
@@ -1074,7 +1583,7 @@ function showToast(message) {
   }, 2500);
 }
 
-// Función auxiliar de escape contra XSS
+// Escape de cadenas contra XSS
 function escapeHTML(str) {
   if (!str) return '';
   return str.replace(/[&<>'"]/g, 
