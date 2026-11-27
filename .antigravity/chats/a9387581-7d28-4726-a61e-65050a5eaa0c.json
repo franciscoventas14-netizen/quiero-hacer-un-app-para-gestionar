@@ -64,6 +64,18 @@
       "created_at": "2026-11-27T02:35:14.045Z",
       "sender": "ios",
       "is_cancelled": false
+    },
+    {
+      "id": "0cc69044-88b2-4b87-b664-a2f336bbbf91",
+      "role": "agent",
+      "content": "¡Listo! He agregado el módulo completo de **Control de Deudas** y un **Simulador Interactivo de Préstamos** a la aplicación.\n\n### 🌐 Puedes ver los cambios en vivo aquí:\n👉 **[Abrir FinanzaPro con Control y Simulador de Deudas](https://antigravity.luch.dev/site/18cd0404-8e0f-4c7e-a98f-d1ede11ce7ca/c311b220d745f543cbf5da77/)**\n\n---\n\n### 💳 ¿Qué novedades incluye esta actualización?\n\n#### 1. **Control y Seguimiento de Deudas Activas**\n* **Panel de Métricas Globales**:\n  * Total de deuda pendiente acumulada.\n  * Compromiso de pago mensual en cuotas.\n  * Total amortizado y porcentaje global de liquidación.\n* **Tarjetas por Cada Deuda**:\n  * Barra de progreso visual que muestra cuánto has pagado y cuánto te resta.\n  * Tasa de interés anual, cuota mensual mínima y día de vencimiento.\n* **Botón de Abono Inmediato**:\n  * Puedes registrar pagos directos a una deuda con un clic.\n  * Opción de registrar el abono automáticamente como un gasto en tu historial de movimientos.\n  * Animación de confeti cuando terminas de pagar una deuda al 100%.\n\n---\n\n#### 2. **Simulador de Deuda / Préstamo (Amortización en Tiempo Real)**\n* **Controles Interactivos**:\n  * Deslizadores (*sliders*) e ingresos numéricos para **Monto del préstamo**, **Tasa de interés anual (%)** y **Plazo en meses** (con accesos rápidos a 6 meses, 1, 2, 3 o 5 años).\n* **Cálculo de Resultados Inmediatos**:\n  * **Cuota mensual fija estimada**.\n  * **Capital vs. Total de Intereses pagados**.\n  * Barra visual de proporción (Capital vs. Interés).\n* **Acelerador de Pago (Aporte Extra Mensual)**:\n  * Te muestra cuánto dinero te ahorras en intereses y **cuántos meses antes** terminas de pagar si aportas un monto adicional cada mes.\n* **Cronograma de Pagos Desplegable (Tabla de Amortización)**:\n  * Desglose mes a mes con cuota, abono a capital, pago de intereses y saldo restante.\n* **Botón \"Guardar como Deuda en Seguimiento\"**:\n  * Con un solo toque puedes guardar la simulación calculada directamente en tus deudas activas.\n\n---\n\n#### 3. **Integración con el Dashboard Principal y Navegación Móvil**\n* Nueva pestaña directa de **Deudas** en la barra inferior móvil y en el menú superior de escritorio.\n* En el Inicio/Dashboard ahora puedes ver la **Deuda Total Pendiente** junto con tu balance disponible.\n\n¡Pruébalo en el enlace y cuéntame si te gustaría ajustar algún detalle o agregar otra herramienta financiera!",
+      "status": "completed",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": "97bc1e2c-4326-4424-aa96-71d5e330e3a2",
+      "created_at": "2026-11-27T02:39:57.909Z",
+      "sender": "macOS",
+      "is_cancelled": false
     }
   ]
 }
