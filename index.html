@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>FinanzaPro - Control de Finanzas Personales & Deudas</title>
+  <title>FinanzaPro - Control de Finanzas, Deudas & Alertas</title>
   <!-- Google Fonts: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,7 +52,7 @@
         </div>
         <div>
           <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">FinanzaPro</h1>
-          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Control & Simulador</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Control, Deudas & Alertas</p>
         </div>
       </div>
 
@@ -66,7 +66,7 @@
         </button>
         <button onclick="switchTab('deudas')" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5" data-tab="deudas">
           <span>Deudas & Simulador</span>
-          <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+          <span id="nav-debts-badge" class="w-2 h-2 rounded-full bg-rose-500 animate-pulse hidden"></span>
         </button>
         <button onclick="switchTab('presupuestos')" class="nav-tab px-3.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" data-tab="presupuestos">
           Presupuestos
@@ -88,6 +88,14 @@
           <option value="CLP">CLP ($)</option>
         </select>
 
+        <!-- Botón Campana de Alertas de Pago -->
+        <button onclick="openModal('payment-alerts-modal')" class="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Alertas de Pago">
+          <i data-lucide="bell" class="w-5 h-5"></i>
+          <span id="header-alert-count" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-sm">
+            0
+          </span>
+        </button>
+
         <!-- Modo Oscuro / Claro -->
         <button id="theme-toggle" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Cambiar tema">
           <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
@@ -108,6 +116,34 @@
 
     <!-- SECCIÓN 1: RESUMEN / DASHBOARD -->
     <section id="view-resumen" class="space-y-6">
+
+      <!-- WIDGET SUPERIOR: ALERTAS DE VENCIMIENTOS DE PAGO PRÓXIMOS -->
+      <div id="dash-payment-alerts-card" class="hidden overflow-hidden rounded-3xl border border-amber-300 dark:border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 p-5 shadow-sm transition-all">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 animate-bounce">
+              <i data-lucide="bell-ring" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-bold text-slate-900 dark:text-white text-base">Alertas de Pagos Próximos</h3>
+                <span id="dash-alert-badge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white">0 urgentes</span>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Revisa las cuotas y compromisos de pago con vencimiento cercano</p>
+            </div>
+          </div>
+          <button onclick="openModal('payment-alerts-modal')" class="self-start sm:self-auto px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5">
+            <span>Ver todas las alertas</span>
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Lista Horizontal o Vertical de Pagos en Alerta -->
+        <div id="dash-alerts-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+
       <!-- Tarjeta Principal de Balance -->
       <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white p-6 sm:p-8 shadow-xl border border-emerald-900/40">
         <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -264,23 +300,6 @@
         </div>
       </div>
 
-      <!-- Banner de Alerta / Control de Deudas Rápido en Resumen -->
-      <div id="dash-debt-banner" class="bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/20 dark:border-amber-500/30 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div class="flex items-center gap-3.5">
-          <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
-            <i data-lucide="shield-alert" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <h4 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base">Módulo de Deudas & Simulador</h4>
-            <p class="text-xs text-slate-500 dark:text-slate-400" id="dash-debt-status-text">Simula préstamos, calcula intereses y crea un plan para salir de deudas.</p>
-          </div>
-        </div>
-        <button onclick="switchTab('deudas')" class="w-full sm:w-auto px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm">
-          <span>Abrir Control de Deudas</span>
-          <i data-lucide="arrow-right" class="w-4 h-4"></i>
-        </button>
-      </div>
-
       <!-- Últimos Movimientos -->
       <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
         <div class="flex items-center justify-between mb-4">
@@ -300,15 +319,19 @@
     </section>
 
 
-    <!-- SECCIÓN 2: CONTROL DE DEUDAS Y SIMULADOR (NUEVO) -->
+    <!-- SECCIÓN 2: CONTROL DE DEUDAS Y SIMULADOR -->
     <section id="view-deudas" class="hidden space-y-6">
       <!-- Encabezado de la Sección -->
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Control & Simulador de Deudas</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Administra tus pasivos y proyecta pagos con el simulador de amortización</p>
+          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Control, Deudas & Simulador</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Administra pasivos, simula pagos y controla fechas límite de vencimiento</p>
         </div>
         <div class="flex items-center gap-2">
+          <button onclick="openModal('payment-alerts-modal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            Ver Alertas
+          </button>
           <button onclick="openModal('debt-modal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-600 text-white hover:bg-rose-500 flex items-center gap-1.5 transition-colors shadow-sm shadow-rose-600/20">
             <i data-lucide="plus" class="w-4 h-4"></i>
             Nueva Deuda
@@ -320,7 +343,7 @@
       <div class="flex items-center p-1.5 bg-slate-200/70 dark:bg-slate-800 rounded-2xl w-full sm:w-fit">
         <button id="subtab-debts-list-btn" onclick="switchDebtSubTab('list')" class="flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm flex items-center justify-center gap-2">
           <i data-lucide="credit-card" class="w-4 h-4"></i>
-          <span>Mis Deudas Activas</span>
+          <span>Mis Deudas & Vencimientos</span>
         </button>
         <button id="subtab-debts-sim-btn" onclick="switchDebtSubTab('simulator')" class="flex-1 sm:flex-none px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center justify-center gap-2">
           <i data-lucide="calculator" class="w-4 h-4"></i>
@@ -369,9 +392,23 @@
           </div>
         </div>
 
+        <!-- Banner Explicativo de Alertas en Sección Deudas -->
+        <div class="bg-slate-100 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-2.5">
+            <i data-lucide="info" class="w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0"></i>
+            <span class="text-slate-600 dark:text-slate-300">
+              Las etiquetas de colores en cada tarjeta te alertan automáticamente si el pago <strong>vence hoy</strong>, <strong>está próximo</strong> o si <strong>ya venció</strong>.
+            </span>
+          </div>
+          <button onclick="requestBrowserNotifications()" class="text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1 flex-shrink-0 ml-3">
+            <i data-lucide="bell-plus" class="w-3.5 h-3.5"></i>
+            <span>Activar Avisos</span>
+          </button>
+        </div>
+
         <!-- Lista de Tarjetas de Deudas -->
         <div id="debts-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          <!-- Renderizado dinámicamente -->
+          <!-- Renderizado dinámicamente con badges de alerta -->
         </div>
       </div>
 
@@ -391,7 +428,6 @@
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6">
             <!-- Parámetros del Simulador (Izquierda) -->
             <div class="lg:col-span-7 space-y-5">
-              <!-- 1. Monto del Préstamo -->
               <div>
                 <div class="flex justify-between items-center mb-1.5">
                   <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Monto del Préstamo o Deuda (<span class="currency-symbol">$</span>)</label>
@@ -404,7 +440,6 @@
                 </div>
               </div>
 
-              <!-- 2. Tasa de Interés Anual -->
               <div>
                 <div class="flex justify-between items-center mb-1.5">
                   <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Tasa de Interés Anual (%)</label>
@@ -417,7 +452,6 @@
                 </div>
               </div>
 
-              <!-- 3. Plazo en Meses -->
               <div>
                 <div class="flex justify-between items-center mb-1.5">
                   <label class="text-xs font-bold text-slate-700 dark:text-slate-300">Plazo de Pago</label>
@@ -433,7 +467,6 @@
                 </div>
               </div>
 
-              <!-- 4. Aporte Extra Mensual (Simulador de Aceleración) -->
               <div class="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
                 <div class="flex justify-between items-center mb-1">
                   <label class="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
@@ -476,7 +509,6 @@
                   </div>
                 </div>
 
-                <!-- Gráfico de distribución de Capital vs Intereses -->
                 <div class="mt-4 pt-3 border-t border-white/10">
                   <div class="flex justify-between text-[11px] text-slate-300 mb-1">
                     <span>Distribución</span>
@@ -487,7 +519,6 @@
                   </div>
                 </div>
 
-                <!-- Tarjeta de Ahorro con Pago Extra -->
                 <div id="sim-extra-savings-card" class="mt-4 p-3 bg-emerald-500/20 border border-emerald-400/30 rounded-2xl hidden">
                   <div class="flex items-center gap-2 text-emerald-300 text-xs font-bold mb-0.5">
                     <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
@@ -499,7 +530,6 @@
                 </div>
               </div>
 
-              <!-- Botón para Guardar Simulación como Deuda Activa -->
               <button onclick="saveSimulatedDebtToActive()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
                 <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
                 <span>Guardar como Deuda en Seguimiento</span>
@@ -529,7 +559,6 @@
                   </tr>
                 </thead>
                 <tbody id="amortization-tbody" class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                  <!-- Filas generadas dinámicamente -->
                 </tbody>
               </table>
             </div>
@@ -560,13 +589,11 @@
 
       <!-- Filtros y Búsqueda -->
       <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
-        <!-- Buscador -->
         <div class="relative w-full md:flex-1">
           <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
           <input type="text" id="tx-search" placeholder="Buscar por nota, categoría, método..." class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
         </div>
 
-        <!-- Filtro Tipo -->
         <div class="flex items-center gap-2 w-full md:w-auto">
           <select id="tx-type-filter" class="w-1/2 md:w-auto py-2 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700 dark:text-slate-200 font-medium">
             <option value="all">Todos los tipos</option>
@@ -574,7 +601,6 @@
             <option value="ingreso">Solo Ingresos</option>
           </select>
 
-          <!-- Filtro Categoría -->
           <select id="tx-category-filter" class="w-1/2 md:w-auto py-2 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700 dark:text-slate-200 font-medium">
             <option value="all">Todas las categorías</option>
           </select>
@@ -584,7 +610,6 @@
       <!-- Lista Completa de Transacciones -->
       <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div id="full-transactions-list" class="divide-y divide-slate-100 dark:divide-slate-800/80">
-          <!-- Renderizado dinámico -->
         </div>
       </div>
     </section>
@@ -624,7 +649,6 @@
 
       <!-- Tarjetas de Categorías con Presupuesto -->
       <div id="budget-cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Generado dinámicamente -->
       </div>
     </section>
 
@@ -642,16 +666,14 @@
         </button>
       </div>
 
-      <!-- Tarjetas de Metas -->
       <div id="goals-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <!-- Generado dinámicamente -->
       </div>
     </section>
 
   </main>
 
 
-  <!-- BARRA DE NAVEGACIÓN INFERIOR (Móvil / Bottom Bar) -->
+  <!-- BARRA DE NAVEGACIÓN INFERIOR (Móvil) -->
   <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-2 flex items-center justify-around safe-bottom shadow-lg">
     <button onclick="switchTab('resumen')" class="mobile-tab active flex flex-col items-center gap-1 py-1 px-2 text-emerald-600 dark:text-emerald-400 transition-colors" data-tab="resumen">
       <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
@@ -661,11 +683,11 @@
       <i data-lucide="receipt" class="w-5 h-5"></i>
       <span class="text-[10px] font-medium">Movimientos</span>
     </button>
-    <!-- Pestaña Deudas Móvil -->
+    <!-- Pestaña Deudas Móvil con badge de alerta -->
     <button onclick="switchTab('deudas')" class="mobile-tab flex flex-col items-center gap-1 py-1 px-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" data-tab="deudas">
       <div class="relative">
         <i data-lucide="landmark" class="w-5 h-5"></i>
-        <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500"></span>
+        <span id="mobile-debt-alert-dot" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
       </div>
       <span class="text-[10px] font-bold">Deudas</span>
     </button>
@@ -678,6 +700,42 @@
       <span class="text-[10px] font-medium">Metas</span>
     </button>
   </nav>
+
+
+  <!-- MODAL: PANEL DE ALERTAS DE FECHAS DE PAGO -->
+  <div id="payment-alerts-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-lg rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 transition-all my-8 animate-in">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <i data-lucide="bell-ring" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">Alertas de Fechas de Pago</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400" id="alerts-modal-subtitle">Calendario de vencimientos del mes</p>
+          </div>
+        </div>
+        <button onclick="closeModal('payment-alerts-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Contenedor de Alertas detalladas -->
+      <div id="alerts-modal-list" class="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+        <!-- Renderizado dinámicamente -->
+      </div>
+
+      <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2 justify-between items-center">
+        <button onclick="requestBrowserNotifications()" class="w-full sm:w-auto text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center justify-center gap-1.5 py-2">
+          <i data-lucide="bell" class="w-4 h-4"></i>
+          <span>Activar notificaciones del navegador</span>
+        </button>
+        <button onclick="closeModal('payment-alerts-modal')" class="w-full sm:w-auto px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
 
 
   <!-- MODAL 1: REGISTRAR TRANSACCIÓN (INGRESO / GASTO) -->
@@ -717,7 +775,7 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Descripción o Concepto</label>
-          <input type="text" id="tx-description" required placeholder="Ej. Compra supermercado, Pago nómina..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+          <input type="text" id="tx-description" required placeholder="Ej. Compra supermercado, Pago cuota..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -751,7 +809,7 @@
       <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
         <div>
           <h3 class="text-lg font-bold text-slate-900 dark:text-white">Registrar Nueva Deuda</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400">Controla préstamos, tarjetas o deudas pendientes</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Controla préstamos, tarjetas y fechas límite de pago</p>
         </div>
         <button onclick="closeModal('debt-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
           <i data-lucide="x" class="w-5 h-5"></i>
@@ -799,14 +857,14 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Día de Pago del Mes</label>
-            <input type="number" min="1" max="31" id="debt-due-day" placeholder="15" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-800 dark:text-slate-200">
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Día de Pago (Vencimiento)</label>
+            <input type="number" min="1" max="31" id="debt-due-day" placeholder="Ej. 15 o 28" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-800 dark:text-slate-200">
           </div>
         </div>
 
         <button type="submit" class="w-full py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-2 mt-4">
           <i data-lucide="plus-circle" class="w-5 h-5"></i>
-          <span>Registrar Deuda</span>
+          <span>Registrar Deuda & Alerta</span>
         </button>
       </form>
     </div>
@@ -833,10 +891,19 @@
           <input type="number" step="0.01" min="0.01" id="debt-pay-amount" required placeholder="0.00" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xl font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white">
         </div>
 
-        <div class="flex items-center gap-2">
-          <input type="checkbox" id="debt-pay-create-tx" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500">
-          <label for="debt-pay-create-tx" class="text-xs text-slate-600 dark:text-slate-400 font-medium">
-            Registrar también como gasto en mis Movimientos
+        <div class="space-y-2 pt-1">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="debt-pay-create-tx" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500">
+            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              Registrar también en mis Movimientos
+            </span>
+          </label>
+
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="debt-pay-mark-month" checked class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500">
+            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              Marcar cuota del mes como pagada (desactivar alerta)
+            </span>
           </label>
         </div>
 
