@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>FinanzaPro - Control de Finanzas Personales</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-full flex flex-col font-sans transition-colors duration-200 pb-20 md:pb-6">
+
+  <!-- Encabezado superior -->
+  <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 sm:px-6">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <!-- Logo y título -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <i data-lucide="wallet" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight">FinanzaPro</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Control Inteligente</p>
+        </div>
+      </div>
+
+      <!-- Navegación escritorio -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800/60 p-1 rounded-xl">
+        <button onclick="switchTab('resumen')" class="nav-tab active px-4 py-1.5 rounded-lg text-sm font-semibold transition-all" data-tab="resumen">
+          Resumen
+        </button>
+        <button onclick="switchTab('movimientos')" class="nav-tab px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" data-tab="movimientos">
+          Movimientos
+        </button>
+        <button onclick="switchTab('presupuestos')" class="nav-tab px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" data-tab="presupuestos">
+          Presupuestos
+        </button>
+        <button onclick="switchTab('metas')" class="nav-tab px-4 py-1.5 rounded-lg text-sm font-semibold transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white" data-tab="metas">
+          Metas
+        </button>
+      </nav>
+
+      <!-- Botones de acción derecha -->
+      <div class="flex items-center gap-2">
+        <!-- Selector de Moneda -->
+        <select id="currency-select" class="text-xs font-semibold bg-slate-100 dark:bg-slate-800 border-none rounded-lg px-2.5 py-1.5 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 cursor-pointer outline-none">
+          <option value="USD">USD ($)</option>
+          <option value="EUR">EUR (€)</option>
+          <option value="MXN">MXN ($)</option>
+          <option value="COP">COP ($)</option>
+          <option value="ARS">ARS ($)</option>
+          <option value="CLP">CLP ($)</option>
+        </select>
+
+        <!-- Modo Oscuro / Claro -->
+        <button id="theme-toggle" class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Cambiar tema">
+          <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+          <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
+        </button>
+
+        <!-- Botón Rápido Agregar (Desktop) -->
+        <button onclick="openModal('transaction-modal')" class="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm px-3.5 py-1.5 rounded-xl shadow-sm transition-colors shadow-emerald-600/20">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Nuevo Movimiento</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenido Principal -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-5">
+
+    <!-- SECCIÓN 1: RESUMEN / DASHBOARD -->
+    <section id="view-resumen" class="space-y-6">
+      <!-- Tarjeta Principal de Balance -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white p-6 sm:p-8 shadow-xl border border-emerald-900/40">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-10 -top-10 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Balance Disponible
+            </span>
+            <button id="toggle-balance-visibility" class="text-slate-400 hover:text-white transition-colors p-1" title="Ocultar/Mostrar saldo">
+              <i data-lucide="eye" id="eye-icon" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Monto Balance Total -->
+          <div class="mb-6">
+            <h2 id="total-balance" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">$0.00</h2>
+            <p class="text-xs text-slate-400 mt-1" id="balance-period-label">Actualizado en tiempo real</p>
+          </div>
+
+          <!-- Resumen Ingresos vs Gastos -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-white/10">
+            <!-- Ingresos -->
+            <div class="bg-white/5 rounded-2xl p-3 backdrop-blur-sm border border-white/5">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i>
+                </div>
+                <span class="text-xs text-slate-300 font-medium">Ingresos</span>
+              </div>
+              <p id="total-income" class="text-base sm:text-lg font-bold text-emerald-400">+$0.00</p>
+            </div>
+
+            <!-- Gastos -->
+            <div class="bg-white/5 rounded-2xl p-3 backdrop-blur-sm border border-white/5">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-6 h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                  <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                </div>
+                <span class="text-xs text-slate-300 font-medium">Gastos</span>
+              </div>
+              <p id="total-expenses" class="text-base sm:text-lg font-bold text-rose-400">-$0.00</p>
+            </div>
+
+            <!-- Tasa de Ahorro -->
+            <div class="col-span-2 sm:col-span-1 bg-white/5 rounded-2xl p-3 backdrop-blur-sm border border-white/5 flex flex-col justify-between">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                  <i data-lucide="piggy-bank" class="w-3.5 h-3.5"></i>
+                </div>
+                <span class="text-xs text-slate-300 font-medium">Capacidad Ahorro</span>
+              </div>
+              <p id="savings-rate" class="text-base sm:text-lg font-bold text-sky-300">0%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones de Acción Rápida (Móvil y Escritorio) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <button onclick="openModal('transaction-modal', 'gasto')" class="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:border-rose-400 dark:hover:border-rose-500 transition-all group">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i data-lucide="minus" class="w-5 h-5"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">Registrar</span>
+            <span class="font-bold text-sm text-slate-800 dark:text-slate-200">Nuevo Gasto</span>
+          </div>
+        </button>
+
+        <button onclick="openModal('transaction-modal', 'ingreso')" class="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:border-emerald-400 dark:hover:border-emerald-500 transition-all group">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">Registrar</span>
+            <span class="font-bold text-sm text-slate-800 dark:text-slate-200">Nuevo Ingreso</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('presupuestos')" class="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:border-amber-400 dark:hover:border-amber-500 transition-all group">
+          <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i data-lucide="pie-chart" class="w-5 h-5"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">Controlar</span>
+            <span class="font-bold text-sm text-slate-800 dark:text-slate-200">Presupuestos</span>
+          </div>
+        </button>
+
+        <button onclick="switchTab('metas')" class="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm hover:border-indigo-400 dark:hover:border-indigo-500 transition-all group">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <i data-lucide="target" class="w-5 h-5"></i>
+          </div>
+          <div class="text-left">
+            <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">Alcanzar</span>
+            <span class="font-bold text-sm text-slate-800 dark:text-slate-200">Mis Metas</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Gráficos Principales -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Gráfico de Gastos por Categoría -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Gastos por Categoría</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Distribución porcentual del mes</p>
+            </div>
+            <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full">Este Mes</span>
+          </div>
+          <div class="relative flex-1 min-h-[240px] flex items-center justify-center">
+            <canvas id="categoryChart"></canvas>
+            <div id="no-category-data" class="hidden text-center text-slate-400 text-sm">
+              <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+              No hay gastos registrados en este período
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico de Comparación Mensual (Ingresos vs Gastos) -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-base">Ingresos vs Gastos</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Flujo financiero reciente</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Ingreso
+              </span>
+              <span class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Gasto
+              </span>
+            </div>
+          </div>
+          <div class="relative flex-1 min-h-[240px]">
+            <canvas id="monthlyTrendChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Últimos Movimientos -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">Últimos Movimientos</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Tus transacciones más recientes</p>
+          </div>
+          <button onclick="switchTab('movimientos')" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+            Ver todos <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <div id="recent-transactions-list" class="divide-y divide-slate-100 dark:divide-slate-800/80">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+    </section>
+
+
+    <!-- SECCIÓN 2: MOVIMIENTOS / HISTORIAL -->
+    <section id="view-movimientos" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Movimientos</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Historial completo y búsqueda de transacciones</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="exportToCSV()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Exportar CSV
+          </button>
+          <button onclick="openModal('transaction-modal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-1.5 transition-colors shadow-sm shadow-emerald-600/20">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Añadir Transacción
+          </button>
+        </div>
+      </div>
+
+      <!-- Filtros y Búsqueda -->
+      <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-3 items-center">
+        <!-- Buscador -->
+        <div class="relative w-full md:flex-1">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" id="tx-search" placeholder="Buscar por nota, categoría, método..." class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+        </div>
+
+        <!-- Filtro Tipo -->
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <select id="tx-type-filter" class="w-1/2 md:w-auto py-2 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700 dark:text-slate-200 font-medium">
+            <option value="all">Todos los tipos</option>
+            <option value="gasto">Solo Gastos</option>
+            <option value="ingreso">Solo Ingresos</option>
+          </select>
+
+          <!-- Filtro Categoría -->
+          <select id="tx-category-filter" class="w-1/2 md:w-auto py-2 px-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-700 dark:text-slate-200 font-medium">
+            <option value="all">Todas las categorías</option>
+            <!-- Opciones agregadas por JS -->
+          </select>
+        </div>
+      </div>
+
+      <!-- Lista Completa de Transacciones -->
+      <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div id="full-transactions-list" class="divide-y divide-slate-100 dark:divide-slate-800/80">
+          <!-- Renderizado dinámico -->
+        </div>
+      </div>
+    </section>
+
+
+    <!-- SECCIÓN 3: PRESUPUESTOS -->
+    <section id="view-presupuestos" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Presupuestos Mensuales</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Establece límites para mantener tus finanzas bajo control</p>
+        </div>
+        <button onclick="openModal('budget-modal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-1.5 transition-colors self-start sm:self-auto shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          Nuevo Presupuesto
+        </button>
+      </div>
+
+      <!-- Resumen General de Presupuesto -->
+      <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-6 text-white shadow-lg">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <span class="text-xs uppercase tracking-wider text-emerald-200 font-semibold">Resumen del Mes</span>
+            <h3 class="text-2xl font-extrabold mt-1" id="budget-summary-spent">$0.00 gastados</h3>
+            <p class="text-xs text-emerald-100" id="budget-summary-total">de un presupuesto total de $0.00</p>
+          </div>
+          <div class="text-right">
+            <span class="text-3xl font-extrabold" id="budget-summary-percent">0%</span>
+            <p class="text-xs text-emerald-200">Consumido</p>
+          </div>
+        </div>
+
+        <div class="w-full bg-white/20 rounded-full h-3 overflow-hidden">
+          <div id="budget-summary-bar" class="bg-white h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Categorías con Presupuesto -->
+      <div id="budget-cards-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Generado dinámicamente -->
+      </div>
+    </section>
+
+
+    <!-- SECCIÓN 4: METAS DE AHORRO -->
+    <section id="view-metas" class="hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white">Metas de Ahorro</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Planifica y alcanza tus sueños financieros paso a paso</p>
+        </div>
+        <button onclick="openModal('goal-modal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-1.5 transition-colors self-start sm:self-auto shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          Nueva Meta
+        </button>
+      </div>
+
+      <!-- Tarjetas de Metas -->
+      <div id="goals-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Generado dinámicamente -->
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- BARRA DE NAVEGACIÓN INFERIOR (Móvil / Bottom Bar) -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-3 py-2 flex items-center justify-around safe-bottom">
+    <button onclick="switchTab('resumen')" class="mobile-tab active flex flex-col items-center gap-1 py-1 px-3 text-emerald-600 dark:text-emerald-400 transition-colors" data-tab="resumen">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[11px] font-bold">Inicio</span>
+    </button>
+    <button onclick="switchTab('movimientos')" class="mobile-tab flex flex-col items-center gap-1 py-1 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" data-tab="movimientos">
+      <i data-lucide="receipt" class="w-5 h-5"></i>
+      <span class="text-[11px] font-medium">Movimientos</span>
+    </button>
+
+    <!-- Botón Central Agregar (+) -->
+    <button onclick="openModal('transaction-modal')" class="flex items-center justify-center -mt-5 w-12 h-12 rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/40 hover:bg-emerald-500 active:scale-95 transition-all">
+      <i data-lucide="plus" class="w-6 h-6"></i>
+    </button>
+
+    <button onclick="switchTab('presupuestos')" class="mobile-tab flex flex-col items-center gap-1 py-1 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" data-tab="presupuestos">
+      <i data-lucide="pie-chart" class="w-5 h-5"></i>
+      <span class="text-[11px] font-medium">Presupuesto</span>
+    </button>
+    <button onclick="switchTab('metas')" class="mobile-tab flex flex-col items-center gap-1 py-1 px-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors" data-tab="metas">
+      <i data-lucide="target" class="w-5 h-5"></i>
+      <span class="text-[11px] font-medium">Metas</span>
+    </button>
+  </nav>
+
+
+  <!-- MODAL 1: REGISTRAR TRANSACCIÓN (INGRESO / GASTO) -->
+  <div id="transaction-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 transition-all my-8 animate-in">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 id="tx-modal-title" class="text-lg font-bold text-slate-900 dark:text-white">Nueva Transacción</h3>
+        <button onclick="closeModal('transaction-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="transaction-form" onsubmit="handleTransactionSubmit(event)" class="space-y-4 pt-4">
+        <!-- Selector Tipo (Gasto o Ingreso) -->
+        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl">
+          <button type="button" id="btn-type-gasto" onclick="setTransactionType('gasto')" class="py-2 rounded-xl text-sm font-bold transition-all bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm">
+            Gasto
+          </button>
+          <button type="button" id="btn-type-ingreso" onclick="setTransactionType('ingreso')" class="py-2 rounded-xl text-sm font-bold transition-all text-slate-600 dark:text-slate-400">
+            Ingreso
+          </button>
+        </div>
+        <input type="hidden" id="tx-type" value="gasto">
+
+        <!-- Monto -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Monto (<span class="currency-symbol">$</span>)</label>
+          <div class="relative">
+            <span class="currency-symbol absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold text-slate-400">$</span>
+            <input type="number" step="0.01" min="0.01" id="tx-amount" required placeholder="0.00" class="w-full pl-9 pr-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xl font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white">
+          </div>
+        </div>
+
+        <!-- Categoría -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Categoría</label>
+          <select id="tx-category" required class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200 font-medium">
+            <!-- Rellenado dinámicamente según tipo -->
+          </select>
+        </div>
+
+        <!-- Descripción / Nota -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Descripción o Concepto</label>
+          <input type="text" id="tx-description" required placeholder="Ej. Compra supermercado, Salario quincena..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+        </div>
+
+        <!-- Método de Pago & Fecha -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Método de Pago</label>
+            <select id="tx-method" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200 font-medium">
+              <option value="Tarjeta de Débito">💳 Tarjeta Débito</option>
+              <option value="Tarjeta de Crédito">💳 Tarjeta Crédito</option>
+              <option value="Efectivo">💵 Efectivo</option>
+              <option value="Transferencia">📲 Transferencia</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Fecha</label>
+            <input type="date" id="tx-date" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200 font-medium">
+          </div>
+        </div>
+
+        <!-- Botón Guardar -->
+        <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 mt-4">
+          <i data-lucide="check" class="w-5 h-5"></i>
+          <span>Guardar Movimiento</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 2: NUEVO PRESUPUESTO -->
+  <div id="budget-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 transition-all my-8 animate-in">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Ajustar Presupuesto</h3>
+        <button onclick="closeModal('budget-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="budget-form" onsubmit="handleBudgetSubmit(event)" class="space-y-4 pt-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Categoría</label>
+          <select id="budget-category" required class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200 font-medium">
+            <!-- Categorías de gasto -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Límite Mensual (<span class="currency-symbol">$</span>)</label>
+          <input type="number" step="0.01" min="1" id="budget-amount" required placeholder="Ej. 300.00" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-base font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white">
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 mt-4">
+          <i data-lucide="save" class="w-5 h-5"></i>
+          <span>Guardar Presupuesto</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 3: NUEVA META DE AHORRO -->
+  <div id="goal-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 transition-all my-8 animate-in">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Nueva Meta de Ahorro</h3>
+        <button onclick="closeModal('goal-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="goal-form" onsubmit="handleGoalSubmit(event)" class="space-y-4 pt-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nombre del Objetivo</label>
+          <input type="text" id="goal-title" required placeholder="Ej. Fondo de Emergencia, Vacaciones, Auto..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Objetivo (<span class="currency-symbol">$</span>)</label>
+            <input type="number" step="0.01" min="1" id="goal-target" required placeholder="1000" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Monto Inicial (<span class="currency-symbol">$</span>)</label>
+            <input type="number" step="0.01" min="0" id="goal-current" value="0" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Ícono</label>
+            <select id="goal-icon" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+              <option value="🛡️">🛡️ Seguridad / Fondo</option>
+              <option value="✈️">✈️ Vacaciones / Viajes</option>
+              <option value="🚗">🚗 Auto / Vehículo</option>
+              <option value="🏠">🏠 Casa / Hogar</option>
+              <option value="💻">💻 Tecnología</option>
+              <option value="🎓">🎓 Educación</option>
+              <option value="💍">💍 Boda / Evento</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Fecha Límite</label>
+            <input type="date" id="goal-deadline" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-800 dark:text-slate-200">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 mt-4">
+          <i data-lucide="plus" class="w-5 h-5"></i>
+          <span>Crear Meta de Ahorro</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 4: APORTAR A META -->
+  <div id="deposit-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 transition-all my-8 animate-in">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white">Aportar a Meta</h3>
+          <p id="deposit-goal-title" class="text-xs text-slate-500 dark:text-slate-400 font-medium"></p>
+        </div>
+        <button onclick="closeModal('deposit-modal')" class="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="deposit-form" onsubmit="handleDepositSubmit(event)" class="space-y-4 pt-4">
+        <input type="hidden" id="deposit-goal-id">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Monto a agregar (<span class="currency-symbol">$</span>)</label>
+          <input type="number" step="0.01" min="0.01" id="deposit-amount" required placeholder="0.00" class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xl font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-white">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2">
+          <i data-lucide="arrow-down-to-dot" class="w-5 h-5"></i>
+          <span>Confirmar Depósito</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Toast Notificaciones -->
+  <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] opacity-0 transition-all duration-300 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-semibold pointer-events-none">
+    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400 dark:text-emerald-600"></i>
+    <span id="toast-message">Mensaje guardado</span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/app.js"></script>
+</body>
+</html>
