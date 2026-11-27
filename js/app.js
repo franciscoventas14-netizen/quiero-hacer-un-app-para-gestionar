@@ -1,4 +1,4 @@
-// FinanzaPro - Lógica Principal con Gestor y Simulador de Deudas
+// FinanzaPro - Lógica Principal con Gestor, Simulador de Deudas y Alertas de Vencimiento
 
 // Categorías predefinidas
 const CATEGORIES = {
@@ -31,7 +31,7 @@ const CURRENCIES = {
   CLP: { symbol: '$', code: 'CLP', locale: 'es-CL' }
 };
 
-// Datos de demostración iniciales: Movimientos
+// Datos iniciales de demostración
 const DEFAULT_TRANSACTIONS = [
   {
     id: 'tx-1',
@@ -126,27 +126,29 @@ const DEFAULT_GOALS = [
   }
 ];
 
-// Datos de demostración iniciales: Deudas Activas
+// Deudas con fechas configuradas para mostrar alertas activas en tiempo real
 const DEFAULT_DEBTS = [
   {
     id: 'debt-1',
-    title: 'Tarjeta Visa Oro',
-    total: 3200,
-    balance: 1850,
-    monthlyMin: 120,
-    rate: 24.5,
-    dueDay: 15,
-    icon: '💳'
-  },
-  {
-    id: 'debt-2',
     title: 'Préstamo Personal Banco',
     total: 6000,
     balance: 3900,
     monthlyMin: 210,
     rate: 14.0,
-    dueDay: 5,
+    dueDay: 27, // Vence HOY (27 de Noviembre) -> Alerta Crítica
+    paidMonths: [],
     icon: '🤝'
+  },
+  {
+    id: 'debt-2',
+    title: 'Tarjeta Visa Oro',
+    total: 3200,
+    balance: 1850,
+    monthlyMin: 120,
+    rate: 24.5,
+    dueDay: 28, // Vence MAÑANA (28 de Noviembre) -> Alerta Urgente
+    paidMonths: [],
+    icon: '💳'
   },
   {
     id: 'debt-3',
@@ -155,7 +157,8 @@ const DEFAULT_DEBTS = [
     balance: 400,
     monthlyMin: 100,
     rate: 0,
-    dueDay: 20,
+    dueDay: 5, // Próximo mes
+    paidMonths: ['2026-11'], // Ya pagado este mes
     icon: '🛍️'
   }
 ];
@@ -169,10 +172,10 @@ let state = {
   currency: localStorage.getItem('fp_currency') || 'USD',
   hideBalance: localStorage.getItem('fp_hide_balance') === 'true',
   activeTab: 'resumen',
-  debtSubTab: 'list' // 'list' o 'simulator'
+  debtSubTab: 'list'
 };
 
-// Instancias de Chart.js
+// Instancias de gráficos
 let categoryChartInstance = null;
 let trendChartInstance = null;
 
@@ -187,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderApp();
   updateDebtSimulator();
 
-  // Fecha de hoy por defecto para movimiento
   const today = new Date().toISOString().split('T')[0];
   const dateInput = document.getElementById('tx-date');
   if (dateInput) dateInput.value = today;
@@ -291,7 +293,7 @@ function setupEventListeners() {
   if (catFilter) catFilter.addEventListener('change', renderTransactionsList);
 }
 
-// Cambio de Pestañas Principales
+// Pestañas Principales
 function switchTab(tabId) {
   state.activeTab = tabId;
 
@@ -307,7 +309,6 @@ function switchTab(tabId) {
     }
   });
 
-  // Botones Escritorio
   document.querySelectorAll('.nav-tab').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.classList.add('active');
@@ -318,7 +319,6 @@ function switchTab(tabId) {
     }
   });
 
-  // Botones Móvil
   document.querySelectorAll('.mobile-tab').forEach(btn => {
     if (btn.getAttribute('data-tab') === tabId) {
       btn.classList.add('active');
@@ -344,7 +344,7 @@ function switchTab(tabId) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Cambio de Sub-pestaña de Deudas (Lista vs Simulador)
+// Sub-pestaña de Deudas (Lista vs Simulador)
 function switchDebtSubTab(subTab) {
   state.debtSubTab = subTab;
   const listEl = document.getElementById('subview-debts-list');
@@ -373,6 +373,7 @@ function switchDebtSubTab(subTab) {
 // Renderizado General
 function renderApp() {
   renderBalance();
+  renderPaymentAlerts();
   renderCharts();
   renderRecentTransactions();
   renderTransactionsList();
@@ -382,7 +383,301 @@ function renderApp() {
   lucide.createIcons();
 }
 
-// 1. Balance y Métricas del Dashboard
+// ==========================================
+// SISTEMA DE ALERTAS DE FECHAS DE PAGO
+// ==========================================
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// Calcula el estado de vencimiento de una deuda
+function getDebtDueStatus(debt) {
+  if (debt.balance <= 0) {
+    return {
+      status: 'paid_off',
+      label: 'Deuda liquidada',
+      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+      daysDiff: 999,
+      urgency: 99,
+      isUrgent: false,
+      isOverdue: false,
+      isPaidMonth: true
+    };
+  }
+
+  const currentMonth = getCurrentMonthKey();
+  const isPaidThisMonth = Array.isArray(debt.paidMonths) && debt.paidMonths.includes(currentMonth);
+
+  if (isPaidThisMonth) {
+    return {
+      status: 'paid_month',
+      label: 'Pagado este mes',
+      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+      daysDiff: 999,
+      urgency: 90,
+      isUrgent: false,
+      isOverdue: false,
+      isPaidMonth: true
+    };
+  }
+
+  const today = new Date();
+  const currentDay = today.getDate();
+  const dueDay = debt.dueDay || 1;
+
+  if (dueDay === currentDay) {
+    return {
+      status: 'due_today',
+      label: '¡Vence Hoy!',
+      badgeClass: 'bg-rose-500 text-white font-extrabold animate-pulse shadow-sm',
+      daysDiff: 0,
+      urgency: 1,
+      isUrgent: true,
+      isOverdue: false,
+      isPaidMonth: false
+    };
+  } else if (dueDay === currentDay + 1) {
+    return {
+      status: 'due_tomorrow',
+      label: 'Vence mañana',
+      badgeClass: 'bg-amber-500 text-white font-bold shadow-sm',
+      daysDiff: 1,
+      urgency: 2,
+      isUrgent: true,
+      isOverdue: false,
+      isPaidMonth: false
+    };
+  } else if (dueDay > currentDay && dueDay <= currentDay + 3) {
+    const diff = dueDay - currentDay;
+    return {
+      status: 'due_soon_urgent',
+      label: `Vence en ${diff} días`,
+      badgeClass: 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 font-bold',
+      daysDiff: diff,
+      urgency: 3,
+      isUrgent: true,
+      isOverdue: false,
+      isPaidMonth: false
+    };
+  } else if (dueDay > currentDay && dueDay <= currentDay + 7) {
+    const diff = dueDay - currentDay;
+    return {
+      status: 'due_soon',
+      label: `Vence en ${diff} días`,
+      badgeClass: 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-medium',
+      daysDiff: diff,
+      urgency: 4,
+      isUrgent: false,
+      isOverdue: false,
+      isPaidMonth: false
+    };
+  } else if (dueDay > currentDay) {
+    const diff = dueDay - currentDay;
+    return {
+      status: 'upcoming',
+      label: `Vence día ${dueDay}`,
+      badgeClass: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 font-medium',
+      daysDiff: diff,
+      urgency: 5,
+      isUrgent: false,
+      isOverdue: false,
+      isPaidMonth: false
+    };
+  } else {
+    // dueDay < currentDay -> Ya pasó el día este mes
+    const daysLate = currentDay - dueDay;
+    return {
+      status: 'overdue',
+      label: `Vencido hace ${daysLate} ${daysLate === 1 ? 'día' : 'días'}`,
+      badgeClass: 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 font-extrabold',
+      daysDiff: -daysLate,
+      urgency: 0,
+      isUrgent: true,
+      isOverdue: true,
+      isPaidMonth: false
+    };
+  }
+}
+
+// Renderiza todas las alertas en el Header, Dashboard y Modal
+function renderPaymentAlerts() {
+  const alertsList = [];
+
+  state.debts.forEach(debt => {
+    const dueInfo = getDebtDueStatus(debt);
+    if (!dueInfo.isPaidMonth && debt.balance > 0) {
+      alertsList.push({
+        debt,
+        dueInfo
+      });
+    }
+  });
+
+  // Ordenar por urgencia (0: overdue, 1: due today, 2: due tomorrow, etc.)
+  alertsList.sort((a, b) => a.dueInfo.urgency - b.dueInfo.urgency);
+
+  const urgentCount = alertsList.filter(a => a.dueInfo.isUrgent).length;
+  const totalAlertsCount = alertsList.length;
+
+  // Actualizar Campana en Header
+  const headerCountEl = document.getElementById('header-alert-count');
+  if (headerCountEl) {
+    headerCountEl.textContent = totalAlertsCount;
+    if (totalAlertsCount > 0) {
+      headerCountEl.classList.remove('hidden');
+    } else {
+      headerCountEl.classList.add('hidden');
+    }
+  }
+
+  // Actualizar indicador en barra de navegación
+  const navBadge = document.getElementById('nav-debts-badge');
+  const mobileDot = document.getElementById('mobile-debt-alert-dot');
+  if (navBadge) {
+    if (urgentCount > 0) navBadge.classList.remove('hidden');
+    else navBadge.classList.add('hidden');
+  }
+  if (mobileDot) {
+    if (urgentCount > 0) mobileDot.classList.remove('hidden');
+    else mobileDot.classList.add('hidden');
+  }
+
+  // Actualizar Widget en Dashboard
+  const dashCard = document.getElementById('dash-payment-alerts-card');
+  const dashBadge = document.getElementById('dash-alert-badge');
+  const dashList = document.getElementById('dash-alerts-list');
+
+  if (dashCard && dashBadge && dashList) {
+    if (totalAlertsCount > 0) {
+      dashCard.classList.remove('hidden');
+      dashBadge.textContent = `${urgentCount} ${urgentCount === 1 ? 'urgente' : 'urgentes'}`;
+      
+      // Mostrar hasta 3 alertas en el dashboard
+      const topAlerts = alertsList.slice(0, 3);
+      dashList.innerHTML = topAlerts.map(({ debt, dueInfo }) => `
+        <div class="bg-white/90 dark:bg-slate-900/90 rounded-2xl p-3.5 border border-amber-200/60 dark:border-amber-900/40 shadow-sm flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="text-xl flex-shrink-0">${debt.icon || '💳'}</span>
+            <div class="min-w-0">
+              <h4 class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-100 truncate">${escapeHTML(debt.title)}</h4>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${dueInfo.badgeClass}">
+                  ${dueInfo.label}
+                </span>
+                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                  Cuota: ${formatMoney(debt.monthlyMin || debt.balance)}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button onclick="openDebtPaymentModal('${debt.id}', '${escapeHTML(debt.title)}', ${debt.balance})" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-colors flex-shrink-0 shadow-sm">
+            Pagar
+          </button>
+        </div>
+      `).join('');
+    } else {
+      dashCard.classList.add('hidden');
+    }
+  }
+
+  // Actualizar Lista del Modal de Alertas
+  const modalList = document.getElementById('alerts-modal-list');
+  const modalSubtitle = document.getElementById('alerts-modal-subtitle');
+
+  if (modalSubtitle) {
+    modalSubtitle.textContent = totalAlertsCount > 0 
+      ? `Tienes ${totalAlertsCount} ${totalAlertsCount === 1 ? 'pago pendiente' : 'pagos pendientes'} este mes`
+      : '¡Excelente! Estás al día con todos tus pagos';
+  }
+
+  if (modalList) {
+    if (alertsList.length === 0) {
+      modalList.innerHTML = `
+        <div class="py-10 text-center text-slate-400">
+          <i data-lucide="check-circle-2" class="w-12 h-12 mx-auto mb-2 text-emerald-500"></i>
+          <h4 class="font-bold text-slate-800 dark:text-slate-200 text-sm">¡Al día con tus pagos!</h4>
+          <p class="text-xs text-slate-400 mt-1">No tienes vencimientos pendientes para este período.</p>
+        </div>
+      `;
+    } else {
+      modalList.innerHTML = alertsList.map(({ debt, dueInfo }) => `
+        <div class="p-4 rounded-2xl border ${dueInfo.isUrgent ? 'border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50'} flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl">${debt.icon || '💳'}</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="font-bold text-sm text-slate-900 dark:text-white">${escapeHTML(debt.title)}</h4>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${dueInfo.badgeClass}">
+                  ${dueInfo.label}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <span>Cuota sugerida: <strong>${formatMoney(debt.monthlyMin || debt.balance)}</strong></span>
+                <span>•</span>
+                <span>Saldo rest.: <strong>${formatMoney(debt.balance)}</strong></span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 self-end sm:self-auto">
+            <button onclick="toggleDebtPaidThisMonth('${debt.id}')" class="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+              Marcar pagado
+            </button>
+            <button onclick="closeModal('payment-alerts-modal'); openDebtPaymentModal('${debt.id}', '${escapeHTML(debt.title)}', ${debt.balance})" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-sm">
+              Abonar ahora
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+// Marcar / Desmarcar como pagado este mes
+function toggleDebtPaidThisMonth(debtId) {
+  const debt = state.debts.find(d => d.id === debtId);
+  if (!debt) return;
+
+  if (!Array.isArray(debt.paidMonths)) debt.paidMonths = [];
+  const currentMonth = getCurrentMonthKey();
+
+  if (debt.paidMonths.includes(currentMonth)) {
+    debt.paidMonths = debt.paidMonths.filter(m => m !== currentMonth);
+    showToast(`Se reactivó la alerta para ${debt.title}`);
+  } else {
+    debt.paidMonths.push(currentMonth);
+    showToast(`¡${debt.title} marcado como pagado este mes!`);
+  }
+
+  saveState();
+  renderApp();
+}
+
+// Solicitar notificaciones al navegador
+function requestBrowserNotifications() {
+  if (!('Notification' in window)) {
+    alert('Tu navegador no soporta notificaciones de escritorio.');
+    return;
+  }
+
+  Notification.requestPermission().then(permission => {
+    if (permission === 'granted') {
+      new Notification('🔔 FinanzaPro Alertas', {
+        body: '¡Notificaciones activadas! Te avisaremos cuando tus pagos estén por vencer.',
+        icon: 'https://cdn-icons-png.flaticon.com/512/3135/3135706.png'
+      });
+      showToast('¡Notificaciones del navegador activadas!');
+    } else {
+      showToast('Permiso de notificaciones no concedido');
+    }
+  });
+}
+
+// ==========================================
+// SECCIÓN BALANCE Y MOVIMIENTOS
+// ==========================================
+
 function renderBalance() {
   let totalIncome = 0;
   let totalExpenses = 0;
@@ -411,7 +706,6 @@ function renderBalance() {
   }
 }
 
-// 2. Transacciones Recientes (Dashboard)
 function renderRecentTransactions() {
   const container = document.getElementById('recent-transactions-list');
   if (!container) return;
@@ -432,7 +726,6 @@ function renderRecentTransactions() {
   container.innerHTML = recent.map(tx => createTransactionRowHTML(tx)).join('');
 }
 
-// 3. Lista Completa de Transacciones
 function renderTransactionsList() {
   const container = document.getElementById('full-transactions-list');
   if (!container) return;
@@ -474,7 +767,6 @@ function renderTransactionsList() {
   lucide.createIcons();
 }
 
-// Fila HTML de Transacción
 function createTransactionRowHTML(tx, showDelete = true) {
   const isIncome = tx.type === 'ingreso';
   const sign = isIncome ? '+' : '-';
@@ -528,7 +820,10 @@ function createTransactionRowHTML(tx, showDelete = true) {
   `;
 }
 
-// 4. CONTROL DE DEUDAS (NUEVO)
+// ==========================================
+// SECCIÓN GESTOR DE DEUDAS
+// ==========================================
+
 function renderDebts() {
   const container = document.getElementById('debts-cards-grid');
   let totalPendingDebt = 0;
@@ -544,7 +839,6 @@ function renderDebts() {
   const totalPaidDebt = Math.max(totalInitialDebt - totalPendingDebt, 0);
   const paidPct = totalInitialDebt > 0 ? Math.round((totalPaidDebt / totalInitialDebt) * 100) : 0;
 
-  // Actualizar métricas superiores en vista de Deudas
   const metricTotalEl = document.getElementById('debt-metric-total');
   const metricCountEl = document.getElementById('debt-metric-count');
   const metricMonthlyEl = document.getElementById('debt-metric-monthly');
@@ -557,17 +851,8 @@ function renderDebts() {
   if (metricPaidEl) metricPaidEl.textContent = formatMoney(totalPaidDebt);
   if (metricPaidPctEl) metricPaidPctEl.textContent = `Progreso de liquidación: ${paidPct}%`;
 
-  // Actualizar tarjeta en Resumen Principal
   const dashDebtTotalEl = document.getElementById('dash-debt-total');
-  const dashDebtStatusEl = document.getElementById('dash-debt-status-text');
   if (dashDebtTotalEl) dashDebtTotalEl.textContent = formatMoney(totalPendingDebt);
-  if (dashDebtStatusEl) {
-    if (state.debts.length > 0) {
-      dashDebtStatusEl.textContent = `Tienes ${state.debts.length} deudas activas por un saldo total de ${formatMoney(totalPendingDebt)}.`;
-    } else {
-      dashDebtStatusEl.textContent = `No tienes deudas pendientes. ¡Excelente salud financiera!`;
-    }
-  }
 
   if (!container) return;
 
@@ -586,9 +871,10 @@ function renderDebts() {
     const paidAmount = Math.max(debt.total - debt.balance, 0);
     const progress = Math.min(Math.round((paidAmount / debt.total) * 100), 100);
     const isPaidOff = debt.balance <= 0;
+    const dueInfo = getDebtDueStatus(debt);
 
     return `
-      <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border ${isPaidOff ? 'border-emerald-500/50 dark:border-emerald-500/50' : 'border-slate-200 dark:border-slate-800'} shadow-sm flex flex-col justify-between space-y-4 relative overflow-hidden">
+      <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border ${dueInfo.isUrgent ? 'border-amber-400/80 dark:border-amber-600/60 shadow-amber-500/10' : (isPaidOff ? 'border-emerald-500/50' : 'border-slate-200 dark:border-slate-800')} shadow-sm flex flex-col justify-between space-y-4 relative overflow-hidden">
         ${isPaidOff ? `
           <div class="absolute -right-7 top-4 bg-emerald-500 text-white text-[10px] font-extrabold uppercase py-0.5 px-8 rotate-45 shadow">
             ¡Pagada!
@@ -596,25 +882,24 @@ function renderDebts() {
         ` : ''}
 
         <div>
-          <!-- Cabecera de la deuda -->
-          <div class="flex items-start justify-between gap-2 mb-3">
+          <!-- Cabecera con Badge de Alerta -->
+          <div class="flex items-start justify-between gap-2 mb-2">
             <div class="flex items-center gap-3">
               <div class="w-11 h-11 rounded-2xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-xl flex-shrink-0">
                 <span>${debt.icon || '💳'}</span>
               </div>
               <div>
                 <h4 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-snug">${escapeHTML(debt.title)}</h4>
-                <div class="flex items-center gap-2 mt-0.5">
+                <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <!-- Badge de Alerta de Fecha -->
+                  <span class="text-[10px] px-2 py-0.5 rounded-full ${dueInfo.badgeClass}">
+                    ${dueInfo.label}
+                  </span>
                   ${debt.rate > 0 ? `
-                    <span class="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">
-                      ${debt.rate}% interés anual
+                    <span class="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-full">
+                      ${debt.rate}% int.
                     </span>
-                  ` : `
-                    <span class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                      0% interés
-                    </span>
-                  `}
-                  ${debt.dueDay ? `<span class="text-[11px] text-slate-400">Día ${debt.dueDay}</span>` : ''}
+                  ` : ''}
                 </div>
               </div>
             </div>
@@ -624,7 +909,7 @@ function renderDebts() {
           </div>
 
           <!-- Saldos -->
-          <div class="flex items-baseline justify-between mb-1.5">
+          <div class="flex items-baseline justify-between mb-1.5 pt-2">
             <div>
               <span class="text-xs text-slate-400 block">Saldo pendiente</span>
               <span class="text-2xl font-extrabold text-slate-900 dark:text-white">${formatMoney(debt.balance)}</span>
@@ -635,7 +920,7 @@ function renderDebts() {
             </div>
           </div>
 
-          <!-- Barra de Progreso de Amortización -->
+          <!-- Barra de Progreso -->
           <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
             <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: ${progress}%"></div>
           </div>
@@ -644,24 +929,25 @@ function renderDebts() {
             <span class="text-slate-400">Pagado: ${formatMoney(paidAmount)}</span>
           </div>
 
-          <!-- Cuota mensual comprometida -->
-          ${debt.monthlyMin > 0 ? `
-            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
-              <span class="text-slate-500 dark:text-slate-400">Cuota mínima sugerida:</span>
-              <span class="font-bold text-slate-800 dark:text-slate-200">${formatMoney(debt.monthlyMin)} / mes</span>
-            </div>
-          ` : ''}
+          <!-- Cuota mensual sugerida & día de pago -->
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+            <span class="text-slate-500 dark:text-slate-400">Cuota: <strong>${formatMoney(debt.monthlyMin || 0)}</strong>/mes</span>
+            <span class="text-slate-400">Día de corte: <strong>${debt.dueDay || 1}</strong></span>
+          </div>
         </div>
 
-        <!-- Botón Abonar -->
-        <div class="pt-2">
+        <!-- Botones de Acción -->
+        <div class="pt-2 flex items-center gap-2">
           ${isPaidOff ? `
             <div class="w-full py-2.5 rounded-2xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-center flex items-center justify-center gap-1.5">
               <i data-lucide="check-circle" class="w-4 h-4"></i>
               <span>Deuda totalmente liquidada</span>
             </div>
           ` : `
-            <button onclick="openDebtPaymentModal('${debt.id}', '${escapeHTML(debt.title)}', ${debt.balance})" class="w-full py-2.5 rounded-2xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-sm shadow-rose-600/20 transition-colors flex items-center justify-center gap-1.5">
+            <button onclick="toggleDebtPaidThisMonth('${debt.id}')" class="px-3 py-2.5 rounded-2xl text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center" title="Marcar cuota pagada">
+              ${dueInfo.isPaidMonth ? '✓ Pagado' : 'Marcar'}
+            </button>
+            <button onclick="openDebtPaymentModal('${debt.id}', '${escapeHTML(debt.title)}', ${debt.balance})" class="flex-1 py-2.5 rounded-2xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-sm shadow-rose-600/20 transition-colors flex items-center justify-center gap-1.5">
               <i data-lucide="credit-card" class="w-4 h-4"></i>
               <span>Abonar a esta deuda</span>
             </button>
@@ -672,7 +958,10 @@ function renderDebts() {
   }).join('');
 }
 
-// 5. SIMULADOR DE PRÉSTAMOS / AMORTIZACIÓN (NUEVO)
+// ==========================================
+// SECCIÓN SIMULADOR DE PRÉSTAMOS
+// ==========================================
+
 let currentSimResults = null;
 
 function setupSimulatorControls() {
@@ -732,7 +1021,6 @@ function updateDebtSimulator() {
   const months = parseInt(document.getElementById('sim-months-range')?.value) || 24;
   const extraPayment = parseFloat(document.getElementById('sim-extra-input')?.value) || 0;
 
-  // Actualizar textos de etiquetas
   const amountDisp = document.getElementById('sim-amount-display');
   const rateDisp = document.getElementById('sim-rate-display');
   const monthsDisp = document.getElementById('sim-months-display');
@@ -746,7 +1034,6 @@ function updateDebtSimulator() {
   }
   if (extraDisp) extraDisp.textContent = `+${formatMoney(extraPayment)}/mes`;
 
-  // Cálculo Matemático de Amortización (Cuota Fija / Sistema Francés)
   const monthlyRate = (annualRate / 100) / 12;
   let standardMonthlyPayment = 0;
 
@@ -759,7 +1046,6 @@ function updateDebtSimulator() {
   const standardTotalCost = standardMonthlyPayment * months;
   const standardTotalInterest = standardTotalCost - principal;
 
-  // Simulación con aporte extra mensual
   let simulatedBalance = principal;
   let simulatedTotalInterest = 0;
   let simulatedMonths = 0;
@@ -790,7 +1076,6 @@ function updateDebtSimulator() {
     });
   }
 
-  // Guardar en variable global para modal de guardado
   currentSimResults = {
     principal,
     annualRate,
@@ -800,7 +1085,6 @@ function updateDebtSimulator() {
     standardTotalCost
   };
 
-  // Actualizar UI de Resultados
   const resPaymentEl = document.getElementById('sim-result-payment');
   const resPrincipalEl = document.getElementById('sim-result-principal');
   const resInterestEl = document.getElementById('sim-result-interest');
@@ -820,7 +1104,6 @@ function updateDebtSimulator() {
     ratioText.textContent = `${capitalPct}% Capital • ${interestPct}% Interés`;
   }
 
-  // Tarjeta de Ahorro con Pago Extra
   const savingsCard = document.getElementById('sim-extra-savings-card');
   const savingsText = document.getElementById('sim-extra-savings-text');
 
@@ -837,7 +1120,6 @@ function updateDebtSimulator() {
     }
   }
 
-  // Rellenar tabla de cronograma
   renderAmortizationTable(schedule);
 }
 
@@ -875,7 +1157,6 @@ function toggleAmortizationTable() {
   lucide.createIcons();
 }
 
-// Convertir simulación en deuda activa
 function saveSimulatedDebtToActive() {
   if (!currentSimResults) return;
 
@@ -890,17 +1171,22 @@ function saveSimulatedDebtToActive() {
     monthlyMin: Math.round(currentSimResults.standardMonthlyPayment),
     rate: currentSimResults.annualRate,
     dueDay: 15,
+    paidMonths: [],
     icon: '🤝'
   };
 
   state.debts.push(newDebt);
   saveState();
   renderDebts();
+  renderPaymentAlerts();
   switchDebtSubTab('list');
   showToast(`¡Deuda "${newDebt.title}" guardada en seguimiento!`);
 }
 
-// 6. Presupuestos
+// ==========================================
+// SECCIÓN PRESUPUESTOS Y METAS
+// ==========================================
+
 function renderBudgets() {
   const container = document.getElementById('budget-cards-grid');
   if (!container) return;
@@ -988,7 +1274,6 @@ function renderBudgets() {
   if (totalBarEl) totalBarEl.style.width = `${Math.min(overallPercent, 100)}%`;
 }
 
-// 7. Metas de Ahorro
 function renderGoals() {
   const container = document.getElementById('goals-cards-grid');
   if (!container) return;
@@ -1054,7 +1339,10 @@ function renderGoals() {
   }).join('');
 }
 
-// 8. Gráficos Interactivos (Chart.js)
+// ==========================================
+// GRÁFICOS (CHART.JS)
+// ==========================================
+
 function renderCharts() {
   renderCategoryChart();
   renderTrendChart();
@@ -1222,7 +1510,10 @@ function updateChartsTheme() {
   if (trendChartInstance) renderTrendChart();
 }
 
-// 9. Manejo de Modales
+// ==========================================
+// MODALES Y FORMULARIOS
+// ==========================================
+
 function openModal(modalId, forcedType = null) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
@@ -1249,7 +1540,6 @@ window.addEventListener('click', (e) => {
   }
 });
 
-// Tipos de Transacción
 function setTransactionType(type) {
   document.getElementById('tx-type').value = type;
   const btnGasto = document.getElementById('btn-type-gasto');
@@ -1297,7 +1587,6 @@ function setupBudgetCategoryOptions() {
   `).join('');
 }
 
-// Envío de Formulario: Transacción
 function handleTransactionSubmit(e) {
   e.preventDefault();
   const type = document.getElementById('tx-type').value;
@@ -1330,7 +1619,6 @@ function handleTransactionSubmit(e) {
   showToast(type === 'gasto' ? 'Gasto registrado con éxito' : 'Ingreso registrado con éxito');
 }
 
-// Envío de Formulario: Deuda Nueva
 function handleDebtSubmit(e) {
   e.preventDefault();
   const title = document.getElementById('debt-title').value.trim();
@@ -1338,7 +1626,7 @@ function handleDebtSubmit(e) {
   const balance = parseFloat(document.getElementById('debt-balance').value);
   const monthlyMin = parseFloat(document.getElementById('debt-monthly-min').value) || 0;
   const rate = parseFloat(document.getElementById('debt-rate').value) || 0;
-  const dueDay = parseInt(document.getElementById('debt-due-day').value) || null;
+  const dueDay = parseInt(document.getElementById('debt-due-day').value) || 15;
   const icon = document.getElementById('debt-icon').value;
 
   if (isNaN(total) || total <= 0) {
@@ -1354,18 +1642,18 @@ function handleDebtSubmit(e) {
     monthlyMin,
     rate,
     dueDay,
+    paidMonths: [],
     icon
   };
 
   state.debts.push(newDebt);
   saveState();
-  renderDebts();
+  renderApp();
   closeModal('debt-modal');
   document.getElementById('debt-form').reset();
-  showToast(`Deuda "${title}" agregada al control`);
+  showToast(`Deuda "${title}" registrada con alerta para el día ${dueDay}`);
 }
 
-// Modal de Abono a Deuda
 function openDebtPaymentModal(debtId, title, currentBalance) {
   document.getElementById('debt-pay-id').value = debtId;
   document.getElementById('debt-pay-title').textContent = `${title} (Saldo pendiente: ${formatMoney(currentBalance)})`;
@@ -1374,12 +1662,12 @@ function openDebtPaymentModal(debtId, title, currentBalance) {
   openModal('debt-payment-modal');
 }
 
-// Procesar Pago / Abono a Deuda
 function handleDebtPaymentSubmit(e) {
   e.preventDefault();
   const debtId = document.getElementById('debt-pay-id').value;
   const amount = parseFloat(document.getElementById('debt-pay-amount').value);
   const createTx = document.getElementById('debt-pay-create-tx').checked;
+  const markMonth = document.getElementById('debt-pay-mark-month').checked;
 
   if (isNaN(amount) || amount <= 0) {
     alert('Ingresa un monto de pago válido');
@@ -1392,7 +1680,14 @@ function handleDebtPaymentSubmit(e) {
   debt.balance = Math.max(debt.balance - amount, 0);
   const isNowPaidOff = debt.balance === 0;
 
-  // Registrar como movimiento de gasto si se seleccionó
+  if (markMonth) {
+    if (!Array.isArray(debt.paidMonths)) debt.paidMonths = [];
+    const currentMonth = getCurrentMonthKey();
+    if (!debt.paidMonths.includes(currentMonth)) {
+      debt.paidMonths.push(currentMonth);
+    }
+  }
+
   if (createTx) {
     const today = new Date().toISOString().split('T')[0];
     state.transactions.unshift({
@@ -1420,17 +1715,15 @@ function handleDebtPaymentSubmit(e) {
   }
 }
 
-// Eliminar Deuda
 function deleteDebt(id) {
   if (confirm('¿Deseas eliminar este registro de deuda?')) {
     state.debts = state.debts.filter(d => d.id !== id);
     saveState();
-    renderDebts();
+    renderApp();
     showToast('Deuda eliminada del control');
   }
 }
 
-// Envío de Formulario: Presupuesto
 function handleBudgetSubmit(e) {
   e.preventDefault();
   const category = document.getElementById('budget-category').value;
@@ -1449,7 +1742,6 @@ function handleBudgetSubmit(e) {
   showToast(`Presupuesto para ${category} actualizado`);
 }
 
-// Envío de Formulario: Meta de Ahorro
 function handleGoalSubmit(e) {
   e.preventDefault();
   const title = document.getElementById('goal-title').value.trim();
@@ -1480,7 +1772,6 @@ function handleGoalSubmit(e) {
   showToast(`Meta "${title}" creada con éxito`);
 }
 
-// Modal de Depósito para Meta
 function openDepositModal(goalId, title) {
   document.getElementById('deposit-goal-id').value = goalId;
   document.getElementById('deposit-goal-title').textContent = title;
@@ -1518,7 +1809,6 @@ function handleDepositSubmit(e) {
   }
 }
 
-// Eliminar Transacción
 function deleteTransaction(id) {
   if (confirm('¿Deseas eliminar este movimiento?')) {
     state.transactions = state.transactions.filter(t => t.id !== id);
@@ -1528,7 +1818,6 @@ function deleteTransaction(id) {
   }
 }
 
-// Eliminar Meta
 function deleteGoal(id) {
   if (confirm('¿Deseas eliminar esta meta de ahorro?')) {
     state.goals = state.goals.filter(g => g.id !== id);
@@ -1538,7 +1827,6 @@ function deleteGoal(id) {
   }
 }
 
-// Exportar a CSV
 function exportToCSV() {
   if (state.transactions.length === 0) {
     alert('No hay movimientos para exportar');
@@ -1567,7 +1855,6 @@ function exportToCSV() {
   showToast('Archivo CSV descargado');
 }
 
-// Toast Notificaciones
 function showToast(message) {
   const toast = document.getElementById('toast');
   const toastMsg = document.getElementById('toast-message');
@@ -1583,7 +1870,6 @@ function showToast(message) {
   }, 2500);
 }
 
-// Escape de cadenas contra XSS
 function escapeHTML(str) {
   if (!str) return '';
   return str.replace(/[&<>'"]/g, 
