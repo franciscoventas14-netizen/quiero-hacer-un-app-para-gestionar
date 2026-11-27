@@ -3,6 +3,31 @@
   "name": "Quiero hacer un app, para gestionar",
   "createdAt": "2026-11-27T02:21:02.821Z",
   "filename": "a9387581-7d28-4726-a61e-65050a5eaa0c.json",
-  "geminiStarted": false,
-  "messages": []
+  "geminiStarted": true,
+  "messages": [
+    {
+      "id": "071d1b46-ce9a-4352-a07c-a7c05e6669e2",
+      "role": "user",
+      "content": "Puede darme en español",
+      "status": "pending",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": null,
+      "created_at": "2026-11-27T02:25:10.250Z",
+      "sender": "ios",
+      "is_cancelled": false
+    },
+    {
+      "id": "a4f8c1a7-2522-4a6b-808b-133675966ee3",
+      "role": "agent",
+      "content": "¡Por supuesto! Podemos hablar en español.\n\nVeo que el espacio de trabajo aún está vacío. ¿En qué proyecto o tarea te gustaría que trabajemos hoy?",
+      "status": "completed",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": "071d1b46-ce9a-4352-a07c-a7c05e6669e2",
+      "created_at": "2026-11-27T02:25:20.599Z",
+      "sender": "macOS",
+      "is_cancelled": false
+    }
+  ]
 }
