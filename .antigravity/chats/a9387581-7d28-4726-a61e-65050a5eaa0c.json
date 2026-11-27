@@ -40,6 +40,18 @@
       "created_at": "2026-11-27T02:25:55.006Z",
       "sender": "ios",
       "is_cancelled": false
+    },
+    {
+      "id": "a756f66f-1e20-41d3-8dc0-204981e70e2a",
+      "role": "agent",
+      "content": "He creado la aplicación web de finanzas personales **FinanzaPro**, diseñada con un estilo moderno, limpio y completamente optimizado para dispositivos móviles y escritorio.\n\n### 🌐 Puedes ver y probar la aplicación aquí:\n👉 **[Ver FinanzaPro en vivo](https://antigravity.luch.dev/site/18cd0404-8e0f-4c7e-a98f-d1ede11ce7ca/c311b220d745f543cbf5da77/)**\n\n---\n\n### ✨ Características principales incluidas:\n\n1. **Dashboard Financiero Completo**:\n   - Tarjeta de **Balance Disponible** con cálculo automático de ingresos, gastos y tasa de ahorro.\n   - Opción para **ocultar/mostrar saldo** con un solo toque (ícono de ojo).\n   - Acceso rápido para registrar nuevos gastos e ingresos.\n\n2. **Gráficos Interactivos**:\n   - **Distribución de Gastos por Categoría**: Gráfico circular tipo dona con porcentajes y colores por categoría.\n   - **Flujo de Ingresos vs. Gastos**: Comparativa visual mensual de tus finanzas.\n\n3. **Gestión de Movimientos (Transacciones)**:\n   - Registro de ingresos y gastos con selección de categoría, método de pago (tarjeta de débito/crédito, efectivo, transferencia), fecha y descripción.\n   - Buscador en tiempo real y filtros por tipo (gastos o ingresos) y categoría.\n   - Exportación de tus movimientos a archivo **CSV**.\n\n4. **Control de Presupuestos**:\n   - Presupuestos por categoría (Alimentación, Vivienda, Transporte, Ocio, etc.) con barra de progreso visual.\n   - Alertas automáticas cuando estás cerca de alcanzar el límite (80%) o si lo sobrepasas (100%).\n\n5. **Metas de Ahorro**:\n   - Define objetivos (ej. *Fondo de Emergencia*, *Viaje*, *Comprar un auto*) con monto objetivo y fecha límite.\n   - Botón para registrar aportes directos con animación de celebración cuando alcanzas tu meta.\n\n6. **Experiencia Móvil y Personalización**:\n   - Barra de navegación inferior nativa para móviles.\n   - Selector de divisas: **USD ($)**, **EUR (€)**, **MXN ($)**, **COP ($)**, **ARS ($)**, **CLP ($)**.\n   - **Modo Claro / Modo Oscuro** con guardado automático de preferencias.\n   - Persistencia local en el navegador (`localStorage`) para que no pierdas tus datos.\n\n¿Te gustaría agregar alguna funcionalidad específica adicional, como gráficos predictivos, recordatorios de pagos o cuentas bancarias múltiples?",
+      "status": "completed",
+      "model": "gemini-3.8-flash-high",
+      "client_type": "gemini-bridge",
+      "parent_message_id": "549c97e6-4df1-4176-85bc-2b94d2cec32d",
+      "created_at": "2026-11-27T02:30:03.038Z",
+      "sender": "macOS",
+      "is_cancelled": false
     }
   ]
 }
